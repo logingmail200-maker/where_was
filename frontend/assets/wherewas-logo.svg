@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">WhereWas</title>
+  <desc id="desc">Minimal W compass mark.</desc>
+  <circle cx="32" cy="32" r="24" fill="none" stroke="#f5f6f2" stroke-width="3"/>
+  <path d="M16.5 24.5 24 43l8-14 8 14 7.5-18.5" fill="none" stroke="#f5f6f2" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="48" cy="18" r="4.5" fill="#090b0c" stroke="#f5f6f2" stroke-width="3"/>
+</svg>

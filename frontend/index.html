@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#080a0b"><meta name="description" content="WhereWas visual location search.">
+  <title>WhereWas — visual search</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/maplibre-gl.css?v=1"><link rel="stylesheet" href="/styles.css?v=55">
+</head>
+<body>
+  <div class="noise" aria-hidden="true"></div>
+  <aside class="tool-rail">
+    <a class="brand-button" href="/" aria-label="WhereWas home"><img src="/assets/wherewas-logo.svg?v=2" alt=""></a>
+    <button class="tool active" id="upload-tool" type="button" aria-label="Upload an image" data-tip="New search"><svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5"/><path d="M5 14v5h14v-5"/></svg></button>
+    <button class="tool" id="map-tool" type="button" aria-label="Recenter map" data-tip="Recenter"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg></button>
+    <button class="tool" id="results-tool" type="button" aria-label="Show location results" data-tip="Results"><svg viewBox="0 0 24 24"><path d="M6 5h12M6 12h12M6 19h8"/><circle cx="3" cy="5" r=".7"/><circle cx="3" cy="12" r=".7"/><circle cx="3" cy="19" r=".7"/></svg></button>
+    <button class="tool" id="compare-tool" type="button" aria-label="Compare source image" data-tip="Compare"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="8" height="16" rx="1"/><rect x="13" y="4" width="8" height="16" rx="1"/></svg></button>
+    <span class="rail-spacer"></span><a class="rail-pro" href="/pricing" aria-label="View Pro plans">PRO</a><div class="rail-state"><i></i><span>READY</span></div>
+  </aside>
+  <main class="workspace">
+    <section class="map-stage" id="map-stage"><div id="map"></div><div class="map-dim"></div><div class="map-vignette"></div><div class="map-status"><span>↪</span><b>WhereWas</b></div></section>
+    <div class="map-topbar"><div class="place-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg><input id="navigate" type="search" autocomplete="off" placeholder="Navigate to a location" aria-label="Navigate to a location"><button id="navigate-clear" type="button" aria-label="Clear search">×</button><div class="place-results" id="place-results" hidden></div></div><span class="profile">G</span></div>
+    <div class="workspace-toast" id="workspace-toast" role="status" hidden></div>
+    <button class="start-search" id="start-search" type="button" hidden><span class="start-icon">↥</span><span><b>Search an image</b><small>Upload a photo to locate it</small></span><i>→</i></button>
+    <input id="file" type="file" accept="image/*" hidden>
+    <section class="source-dock" id="source-dock" hidden>
+      <header><span>SOURCE IMAGE</span><button id="remove-image" type="button" aria-label="Remove image">×</button></header>
+      <div class="source-thumb"><img id="dock-image" alt="Selected source"><span class="scanline"></span></div>
+      <div class="source-meta"><b id="dock-name">image.jpg</b><small id="dock-size">0 MB</small></div>
+      <button class="dock-search" id="dock-search" type="button">Search image <span>→</span></button>
+    </section>
+    <section class="upload-panel" id="upload-panel" hidden>
+      <header><span>NEW IMAGE SEARCH</span><button id="upload-close" type="button" aria-label="Close">×</button></header>
+      <div class="upload-drop" id="upload-drop">
+        <div class="upload-empty" id="upload-empty"><span class="upload-glyph">↑</span><h2>Drop an image here</h2><p>or choose a photo from your device</p><button id="upload-browse" type="button">Browse photo</button><small>JPG, PNG, WEBP · 15 MB MAX</small></div>
+        <div class="upload-ready" id="upload-ready" hidden><img id="upload-preview" alt="Selected image preview"><div><b id="upload-name">image.jpg</b><small id="upload-size">0 MB</small><button id="upload-change" type="button">Choose another</button></div></div>
+      </div>
+      <footer><span>Visible buildings, roads and signs improve the match.</span><button class="primary" id="upload-search" type="button" disabled>Locate image <span>→</span></button></footer>
+    </section>
+    <section class="search-card" id="search-card" hidden>
+      <div class="search-brand" aria-hidden="true"><svg viewBox="0 0 64 64"><circle class="brand-ring" cx="32" cy="32" r="24"/><path class="brand-w" d="M16.5 24.5 24 43l8-14 8 14 7.5-18.5"/><circle class="brand-node" cx="48" cy="18" r="4.5"/></svg><i></i><span></span></div><h2 id="search-title">Searching visual terrain…</h2><p id="search-detail">Preparing the image</p>
+      <div class="search-progress"><i id="search-progress"></i></div><div class="search-readout"><span>ANALYSIS</span><b id="search-percent">08%</b></div>
+    </section>
+    <section class="result-ui" id="result-ui" hidden>
+      <button class="back-results" id="back-results" type="button">← Back to search</button>
+      <aside class="result-panel">
+        <header><span>LOCATION MATCH</span><button id="panel-close" type="button" aria-label="Hide details">×</button></header>
+        <div class="result-copy"><small>BEST CANDIDATE</small><h1 id="result-name">Location candidate</h1><p id="result-address">Address unavailable</p></div>
+        <dl><div><dt>Match level</dt><dd id="result-tier">—</dd></div><div><dt>Confidence</dt><dd id="result-score">—</dd></div><div><dt>Search area</dt><dd id="result-radius">—</dd></div></dl>
+        <div class="candidate-strip" id="candidate-strip"></div>
+        <div class="panel-actions"><button id="open-street" type="button">Open street context</button><button id="show-all" type="button">Show candidates</button></div>
+        <div class="confirm-row"><span><b>Is this correct?</b><small>Your confirmation improves ranking.</small></span><button id="confirm-result" type="button">Confirm</button></div>
+      </aside>
+      <section class="compare-drawer" id="compare-drawer" hidden>
+        <header><span id="compare-file">SOURCE IMAGE</span><button id="compare-close" type="button">×</button></header>
+        <div class="compare-image"><img id="compare-image" alt="Uploaded source image"><span></span></div><footer><i></i><span>VISUAL REFERENCE</span></footer>
+      </section>
+      <section class="street-view" id="street-view" hidden>
+        <header><span><i></i> STREET VIEW</span><button id="street-close" type="button" aria-label="Close Street View">×</button></header>
+        <iframe id="street-frame" title="Street View for selected place" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+        <footer><b id="street-name">Selected place</b><span>Street imagery opens by mapped place name.</span></footer>
+      </section>
+      <div class="view-toggle"><button class="on" data-view="street" type="button">Street context</button><button data-view="map" type="button">Candidate map</button><button data-view="compare" type="button">Compare</button></div>
+    </section>
+    <div class="credit">WHEREWAS <i></i> CREDITS — SMARTY</div>
+    <div class="map-modes" role="group" aria-label="Map style"><button class="on" data-style="dark" type="button">Map</button><button data-style="satellite" type="button">Satellite</button></div>
+  </main>
+  <script src="/maplibre-gl.js?v=1"></script><script src="/app.js?v=54"></script>
+</body>
+</html>

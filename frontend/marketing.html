@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#050506">
+  <meta name="description" content="WhereWas turns visual scenes into defensible location matches.">
+  <title>WhereWas — visual location intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/maplibre-gl.css">
+  <link rel="stylesheet" href="/marketing.css?v=22">
+</head>
+<body>
+  <div class="noise" aria-hidden="true"></div>
+  <header class="site-header" id="site-header">
+    <div class="nav-wrap">
+      <a class="brand" href="#top" aria-label="WhereWas home"><img class="brand-logo" src="/assets/wherewas-logo.svg?v=2" alt=""><b>WhereWas</b></a>
+      <nav aria-label="Primary navigation"><a href="#platform">Platform</a><a href="#method">Method</a><a href="/pricing">Pricing</a><a href="#articles">Articles</a></nav>
+      <div class="nav-actions"><span class="nav-live"><i></i>LIVE</span><a class="nav-cta" href="/try">Try WhereWas <span>↗</span></a></div>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="geo-story" id="search-story" aria-label="From image to exact street">
+      <div class="geo-pin">
+        <section class="hero" id="hero">
+          <canvas class="hero-pixels" id="hero-pixels" aria-hidden="true"></canvas>
+          <div class="hero-copy">
+            <p class="eyebrow">Visual location intelligence</p>
+            <h1>Find the place<br>inside the picture.</h1>
+            <p class="hero-sub">Turn an ordinary scene into a ranked, explorable location match—without needing embedded coordinates.</p>
+            <p class="proof-line"><i></i> From pixels to place, with uncertainty made visible.</p>
+          </div>
+        </section>
+        <div class="story-chrome"><span><img src="/assets/wherewas-logo.svg?v=2" alt=""> WHEREWAS / STREET SEARCH</span><b><i></i> LIVE SEQUENCE</b></div>
+        <div class="story-scene">
+          <div id="story-live-map" class="story-live-map" aria-hidden="true"></div>
+          <video class="story-result-video" muted loop playsinline preload="none" aria-label="Animated Downtown Dubai road scene">
+            <source src="/assets/dubai-road-motion-enhanced.mp4" type="video/mp4">
+          </video>
+          <div class="pixel-matrix" aria-hidden="true"></div>
+          <svg class="road-trace" viewBox="0 0 1200 700" preserveAspectRatio="none" aria-hidden="true">
+            <path class="road-trace-glow" pathLength="1" d="M354 535 C445 502 515 455 571 412 C629 367 707 332 846 286"/>
+            <path class="road-trace-core" pathLength="1" d="M354 535 C445 502 515 455 571 412 C629 367 707 332 846 286"/>
+          </svg>
+          <canvas id="source-pixels" class="source-pixels" aria-hidden="true"></canvas>
+          <canvas id="story-globe" aria-hidden="true"></canvas>
+          <canvas id="story-map" aria-hidden="true"></canvas>
+          <div class="map-grid" aria-hidden="true"></div>
+          <div class="target-chip"><i></i><span>Street targeting</span><b>Downtown Dubai</b></div>
+
+          <div class="source-ambient" aria-hidden="true"></div>
+          <figure class="source-frame">
+            <img src="/assets/dubai-downtown-source.png" alt="Downtown Dubai street scene with Burj Khalifa, Emaar branding and the Dubai Trolley">
+            <div class="scan-grid" aria-hidden="true"></div>
+            <span class="clue clue-emaar"><i></i><b>EMAAR</b><small>BRAND SIGNAL</small></span>
+            <span class="clue clue-downtown"><i></i><b>DOWNTOWN</b><small>DISTRICT TEXT</small></span>
+            <span class="clue clue-burj"><i></i><b>BURJ KHALIFA</b><small>LANDMARK</small></span>
+            <span class="clue clue-trolley"><i></i><b>DUBAI TROLLEY</b><small>TRANSIT MARKER</small></span>
+            <span class="clue clue-road"><i></i><b>BOULEVARD FORM</b><small>ROAD GEOMETRY</small></span>
+            <figcaption>Source image · no embedded coordinates</figcaption>
+          </figure>
+
+          <div class="map-city-label">DOWNTOWN DUBAI <span>25.19°N · 55.27°E</span></div>
+          <div class="candidate-layer" aria-hidden="true">
+            <i style="--x:43%;--y:54%">1</i><i style="--x:51%;--y:48%">2</i><i style="--x:58%;--y:59%">3</i><i style="--x:37%;--y:63%">4</i><i style="--x:64%;--y:43%">5</i><i style="--x:47%;--y:68%">6</i><i style="--x:69%;--y:61%">7</i><i style="--x:33%;--y:46%">8</i><i style="--x:55%;--y:37%">9</i><i style="--x:73%;--y:51%">10</i>
+          </div>
+          <div class="place-lock" aria-hidden="true"><span>01</span><i></i></div>
+          <div class="coordinate-reveal" aria-hidden="true">
+            <small>EXACT POSITION</small>
+            <div class="coord-lat"><span>LATITUDE</span><b>25.1924° N</b></div>
+            <div class="coord-lon"><span>LONGITUDE</span><b>55.2722° E</b></div>
+            <p>Sheikh Mohammed bin Rashid Boulevard</p>
+          </div>
+          <div class="final-place">
+            <small>TOP MATCH · RANK 1 OF 10</small>
+            <h3>Sheikh Mohammed bin Rashid Boulevard</h3>
+            <p>Downtown Dubai · United Arab Emirates</p>
+            <code>25.1924° N · 55.2722° E</code>
+            <b><i></i> Location resolved</b>
+          </div>
+        </div>
+
+        <ol class="story-steps">
+          <li class="active" data-step="0"><small>01 / SOURCE</small><h2>Start with a single photograph.</h2><p>No metadata. No coordinates. Only what is visible.</p></li>
+          <li data-step="1"><small>02 / VISUAL SIGNALS</small><h2>The scene begins to describe itself.</h2><p>Emaar, Downtown, Burj Khalifa, the boulevard and Dubai Trolley converge.</p></li>
+          <li data-step="2"><small>03 / IMAGE TRANSFER</small><h2>Every pixel enters the geographic search.</h2><p>The full frame becomes a visual signal stream while the world rotates toward the UAE.</p></li>
+          <li data-step="3"><small>04 / UAE LOCK</small><h2>The globe settles over the Emirates.</h2><p>The image transfer completes as the strongest regional match moves into view.</p></li>
+          <li data-step="7"><small>05 / RESOLVED</small><h2>From one image to the right street.</h2><p>Sheikh Mohammed bin Rashid Boulevard, Downtown Dubai.</p></li>
+        </ol>
+        <p class="story-note">Illustrative search sequence · candidate ranking shown for product demonstration</p>
+      </div>
+    </section>
+
+    <section class="enterprise section" id="platform">
+      <div class="section-intro reveal">
+        <p class="eyebrow">WhereWas</p>
+        <h2>From visual uncertainty<br>to a defensible place.</h2>
+        <p>WhereWas turns visual evidence into a ranked location decision—so research, field, and authorised security teams can inspect the result before acting on it.</p>
+      </div>
+      <div class="feature-tabs reveal" role="tablist" aria-label="WhereWas capabilities">
+        <button class="active" role="tab" aria-selected="true" data-feature="estimate"><i></i> Visual shortlist</button>
+        <button role="tab" aria-selected="false" data-feature="precision"><i></i> Candidate review</button>
+        <button role="tab" aria-selected="false" data-feature="confirm"><i></i> Verified workflow</button>
+      </div>
+      <article class="feature-card reveal" id="feature-card">
+        <div class="feature-copy"><p class="feature-label" id="feature-label">Visual shortlist</p><h3 id="feature-title">Turn one uncertain scene into places worth checking.</h3><p id="feature-body">Road geometry, storefronts, architecture, language, transit, and landmarks become a ranked shortlist—not an unexplained pin.</p><div class="feature-metrics"><span>Visible clues</span><span>Ranked places</span><span>Map context</span></div></div>
+        <div class="feature-media" id="feature-media"><div class="frame-corners"><i></i><i></i><i></i><i></i></div><div class="location-chip"><span></span><b>Scene located</b><small>Candidate ready</small></div></div>
+      </article>
+    </section>
+
+    <section class="editorial section reveal" id="method">
+      <div class="editorial-bg"></div>
+      <div class="editorial-copy"><p class="eyebrow">How it works</p><h2>Every visible detail<br>earns its place.</h2><p>WhereWas treats a photograph as a network of place signals—not a single guess. Users can compare candidates, view the map, and make the final confirmation.</p></div>
+      <div class="signal-stack" aria-hidden="true"><span>ROAD FORM <b>84</b></span><span>PLACE NAME <b>96</b></span><span>TRANSIT CONTEXT <b>79</b></span><span>REGIONAL FIT <b>88</b></span></div>
+    </section>
+
+    <section class="intelligence section">
+      <div class="intel-copy reveal"><p class="eyebrow">One workspace</p><h2>Turn pixels into<br>defensible decisions.</h2><p>Upload the frame, inspect the strongest clues, compare candidates on the map, and preserve the decision with its context.</p></div>
+      <article class="case-card reveal"><div class="case-image"></div><div class="case-shade"></div><div class="case-copy"><small>CASE WORKSPACE / 01</small><h3>A storefront becomes a reviewable street-level match.</h3><span class="case-state"><i></i> AUTHORISED WORKFLOW</span></div></article>
+    </section>
+
+    <section class="stories section" id="articles">
+      <div class="stories-intro reveal"><p class="eyebrow">Field notes</p><h2>Visual location, explained.</h2><p>Short reads on evidence, verification, and responsible visual search.</p></div>
+      <div class="story-grid">
+        <article class="story-card reveal"><div class="story-image story-a"><span>Guide · 6 min</span></div><div><small>FIELD NOTE / 01</small><h3>How a road, sign, and skyline become a location shortlist.</h3><a href="/articles/visual-shortlist.html">Read field note <span>→</span></a></div></article>
+        <article class="story-card reveal"><div class="story-image story-b"><span>Workflow · 4 min</span></div><div><small>FIELD NOTE / 02</small><h3>Why the best answer is a reviewable candidate—not a magic pin.</h3><a href="/articles/reviewable-results.html">Explore the workflow <span>→</span></a></div></article>
+        <article class="story-card reveal"><div class="story-image story-c"><span>Responsible use · 5 min</span></div><div><small>FIELD NOTE / 03</small><h3>Building a visual investigation workflow people can trust.</h3><a href="/articles/responsible-security.html">Read the principles <span>→</span></a></div></article>
+      </div>
+    </section>
+
+    <section class="final-cta section reveal"><div><p class="eyebrow">Ready when you are</p><h2>One image. One search.<br>See where it leads.</h2></div><a class="primary-btn" href="/try">Try WhereWas once <span>↗</span></a></section>
+  </main>
+
+  <footer>
+    <div class="footer-main"><div class="footer-brand"><a class="brand" href="#top"><img class="brand-logo" src="/assets/wherewas-logo.svg?v=2" alt=""><b>WhereWas</b></a><p>Pixels to place.</p></div><div class="newsletter"><p>Product notes</p><span>Occasional updates on visual search and new capabilities.</span><form><label class="sr-only" for="email">Email address</label><input id="email" type="email" placeholder="name@email.com"><button type="submit">Subscribe</button></form></div></div>
+    <div class="footer-bottom"><span>Credits — Smarty · © 2026 WhereWas</span><div><a href="#platform">Platform</a><a href="#method">Method</a><a href="/pricing">Pricing</a></div></div>
+  </footer>
+
+  <script src="/maplibre-gl.js"></script>
+  <script src="/marketing.js?v=22"></script>
+</body>
+</html>

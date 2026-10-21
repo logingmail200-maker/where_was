@@ -1,0 +1,23 @@
+{
+  "weights": {
+    "bias": 0.7660012064804479,
+    "base_score": 0.745329713976571,
+    "has_address": 0.7605405244658895,
+    "small_radius": 0.7605405244658895,
+    "why_count": 0.19013513111647237,
+    "tier_pin": 0.7605405244658895,
+    "tier_block": 0.0,
+    "source_exif": 0.0,
+    "source_ocr": 0.0,
+    "source_scene": 0.0,
+    "source_nominatim": 0.0,
+    "source_overpass": 0.0,
+    "second_clue": 0.0,
+    "independent": 0.0,
+    "unique_name": 0.0,
+    "chain_warning": 0.0,
+    "infrastructure": 0.0
+  },
+  "sessions": 1,
+  "examples": 1
+}
