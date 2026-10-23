@@ -46,7 +46,13 @@ def _warmup():
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "service": "wherewas", "gemini": bool(load_gemini_key()), "learning": learning_status()}
+    return {
+        "ok": True,
+        "service": "wherewas",
+        "engine": "multi-clue-consensus-v2",
+        "gemini": bool(load_gemini_key()),
+        "learning": learning_status(),
+    }
 
 
 @app.get("/api/geocode")
