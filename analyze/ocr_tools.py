@@ -306,6 +306,37 @@ def apply_gemini_signs(ocr: dict, visual: dict) -> dict:
                 break
     ocr["vision_names"] = names
     ocr["vision_agreements"] = agreements
+    reads = []
+    for row in visual.get("textReads") or []:
+        text = re.sub(r"\s+", " ", str(row.get("text") or "")).strip()
+        kind = str(row.get("kind") or "other").lower()
+        confidence = float(row.get("confidence") or 0.0)
+        if not text or confidence < 0.68:
+            continue
+        reads.append({"text": text, "kind": kind, "confidence": confidence})
+    ocr["vision_text_reads"] = reads
+    # High-confidence crop readings are searchable evidence even when the
+    # lightweight local OCR model cannot read the same tiny lettering.
+    ocr["vision_names_confident"] = list(dict.fromkeys(
+        row["text"] for row in reads
+        if row["kind"] in {"business", "road", "locality", "transit", "institution"}
+        and row["confidence"] >= 0.76
+        and len(row["text"]) >= 4
+    ))
+    ocr["vision_businesses_confident"] = list(dict.fromkeys(
+        row["text"] for row in reads
+        if row["kind"] in {"business", "institution"}
+        and row["confidence"] >= 0.80
+        and len(row["text"]) >= 4
+    ))
+    vision_phones = []
+    for row in reads:
+        if row["kind"] != "phone":
+            continue
+        digits = re.sub(r"\D", "", row["text"])
+        if 8 <= len(digits) <= 15:
+            vision_phones.append(digits)
+    ocr["phones"] = list(dict.fromkeys((ocr.get("phones") or []) + vision_phones))[:8]
     # Only consensus readings enter OCR-derived names. Vision-only names remain
     # available separately to the reasoning stage as weaker evidence.
     agreed_names = [a["vision"] for a in agreements]

@@ -6,6 +6,7 @@ from urllib.parse import quote_plus
 
 
 COORDS = re.compile(r"!3d(-?\d{1,2}\.\d+)!4d(-?\d{1,3}\.\d+)")
+AT_COORDS = re.compile(r"/@(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)")
 
 
 def _queries(mind: dict) -> list[str]:
@@ -19,14 +20,21 @@ def _queries(mind: dict) -> list[str]:
     roads = [x for x in visual if re.search(r"\b(road|rd|street|st|main|avenue|ave|highway|hwy)\b", x, re.I)]
     businesses = [x for x in visual if x not in roads and len(x) >= 5]
     out = []
+    out.extend(str(q) for q in (mind.get("model_queries") or [])[:4])
     out.extend(f"{phone} {city}" for phone in phones[:2])
     # Road + visible business is normally the strongest searchable combination.
     for road in roads[:2]:
         for brand in brands[:2]:
             out.append(f"{brand} {road} {city}")
+        for business in businesses[:2]:
+            out.append(f"{business} {road} {city}")
     # Search independently read storefronts so nearby results can corroborate
     # one another instead of trusting one chain branch.
     out.extend(f"{name} {city}" for name in businesses[:4])
+    for left in businesses[:3]:
+        for right in businesses[:3]:
+            if left != right:
+                out.append(f"{left} near {right} {city}")
     if len(brands) >= 2:
         out.extend(f"{brand} {city}" for brand in brands[:2])
     seen, clean = set(), []
@@ -37,7 +45,7 @@ def _queries(mind: dict) -> list[str]:
             continue
         seen.add(key)
         clean.append(q)
-        if len(clean) >= 6:
+        if len(clean) >= 9:
             break
     return clean
 
@@ -74,7 +82,41 @@ async def google_place_candidates(mind: dict) -> list[dict]:
                 url = f"https://www.google.com/maps/search/{quote_plus(query)}?hl=en"
                 try:
                     await page.goto(url, wait_until="domcontentloaded", timeout=9000)
-                    await page.wait_for_timeout(850)
+                    await page.wait_for_timeout(1200)
+                    direct_url = page.url
+                    direct_match = COORDS.search(direct_url) or AT_COORDS.search(direct_url)
+                    if direct_match:
+                        lat, lon = float(direct_match.group(1)), float(direct_match.group(2))
+                        title = (await page.title()).replace(" - Google Maps", "").strip()
+                        heading = page.locator("h1").first
+                        if await heading.count():
+                            try:
+                                title = (await heading.inner_text()).strip() or title
+                            except Exception:
+                                pass
+                        address = ""
+                        address_node = page.locator('[data-item-id="address"], button[data-item-id*="address"]').first
+                        if await address_node.count():
+                            try:
+                                address = (await address_node.get_attribute("aria-label") or await address_node.inner_text()).strip()
+                            except Exception:
+                                pass
+                        key = (round(lat, 6), round(lon, 6), query.lower())
+                        if key not in seen and title and title.lower() not in {"google maps", "maps"}:
+                            seen.add(key)
+                            hits.append(
+                                {
+                                    "source": "google-maps",
+                                    "query": query,
+                                    "name": title,
+                                    "address": address or None,
+                                    "lat": lat,
+                                    "lon": lon,
+                                    "osm_id": f"g-{lat:.6f}-{lon:.6f}",
+                                    "importance": 0.62,
+                                    "query_strength": _query_strength(query, mind),
+                                }
+                            )
                     links = page.locator('a[href*="/maps/place/"]')
                     count = min(await links.count(), 5)
                     for index in range(count):
@@ -115,7 +157,57 @@ async def google_place_candidates(mind: dict) -> list[dict]:
             await browser.close()
     except Exception:
         return []
-    return hits[:16]
+    preferred = [b.get("label") for b in mind.get("brands") or [] if b.get("label")]
+    preferred.extend(mind.get("search_names") or [])
+    return _cluster_hits(hits, preferred)[:20]
+
+
+def _cluster_hits(hits: list[dict], preferred_names: list[str] | None = None) -> list[dict]:
+    """Merge repeated searches that resolve to the same physical candidate."""
+    groups: list[list[dict]] = []
+    for hit in hits:
+        group = next(
+            (
+                group for group in groups
+                if abs(group[0]["lat"] - hit["lat"]) < 0.0008
+                and abs(group[0]["lon"] - hit["lon"]) < 0.0008
+            ),
+            None,
+        )
+        if group is None:
+            groups.append([hit])
+        else:
+            group.append(hit)
+    merged = []
+    for group in groups:
+        best = max(group, key=lambda row: float(row.get("query_strength") or 0.0))
+        for preferred in preferred_names or []:
+            compact = re.sub(r"[^a-z0-9]+", "", str(preferred).lower())
+            named = next(
+                (
+                    row for row in group
+                    if compact and compact in re.sub(r"[^a-z0-9]+", "", str(row.get("name") or "").lower())
+                ),
+                None,
+            )
+            if named is not None:
+                best = named
+                break
+        queries = list(dict.fromkeys(row.get("query") for row in group if row.get("query")))
+        sources = list(dict.fromkeys(row.get("source") for row in group if row.get("source")))
+        nearby_names = list(dict.fromkeys(row.get("name") for row in group if row.get("name")))
+        merged.append(
+            {
+                **best,
+                "matched_queries": queries,
+                "support_count": len(queries),
+                "support_sources": sources,
+                "nearby_names": nearby_names,
+                "query_strength": min(1.0, float(best.get("query_strength") or 0.0) + 0.07 * max(0, len(queries) - 1)),
+            }
+        )
+    merged.sort(key=lambda row: (-int(row.get("support_count") or 1), -float(row.get("query_strength") or 0.0)))
+    return merged
 
 
 def _query_strength(query: str, mind: dict) -> float:
@@ -130,6 +222,8 @@ def _query_strength(query: str, mind: dict) -> float:
     # A specific local name plus a city is enough to make a useful candidate
     # query, but not enough by itself to declare a photo an exact match.
     searchable = [str(x).lower() for x in mind.get("search_names") or []]
+    if sum(1 for name in searchable if len(name) >= 5 and name in low) >= 2:
+        return 0.92
     if any(name in low for name in searchable if len(name) >= 5):
         return 0.68
     return 0.45
@@ -137,6 +231,6 @@ def _query_strength(query: str, mind: dict) -> float:
 
 async def bounded_google_place_candidates(mind: dict) -> list[dict]:
     try:
-        return await asyncio.wait_for(google_place_candidates(mind), timeout=18.0)
+        return await asyncio.wait_for(google_place_candidates(mind), timeout=32.0)
     except (asyncio.TimeoutError, Exception):
         return []

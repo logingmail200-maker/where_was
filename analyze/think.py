@@ -50,6 +50,7 @@ def compose(ocr: dict, visual: dict, exif: dict, kind: dict, rev: dict) -> dict:
         visual.get("regionHints"),
         visual.get("languagesSeen"),
         " ".join(f"{c.get('kind')} {c.get('observation')} {c.get('geographicImplication')}" for c in visual.get("clues") or []),
+        [row.get("text") for row in visual.get("textReads") or []],
     )
     blob = f"{ocr_text} {gemini_blob}".lower()
     thoughts: list[str] = []
@@ -89,6 +90,7 @@ def compose(ocr: dict, visual: dict, exif: dict, kind: dict, rev: dict) -> dict:
     # Vision-only names are suggestions, not search evidence. Requiring OCR
     # agreement prevents a hallucinated neighboring brand from creating a pin.
     agreed_visual = [a.get("vision") for a in ocr.get("vision_agreements") or [] if a.get("vision")]
+    confident_visual = list(ocr.get("vision_names_confident") or [])
     # A road name is useful only as context for an independently read sign. It
     # may broaden the search, but cannot create a precise candidate by itself.
     visual_roads = [
@@ -96,7 +98,7 @@ def compose(ocr: dict, visual: dict, exif: dict, kind: dict, rev: dict) -> dict:
         if re.search(r"\b(road|rd|street|st|main|avenue|ave|highway|hwy)\b", n or "", re.I)
     ]
     names = []
-    for n in agreed_visual + (ocr.get("names") or []) + visual_roads:
+    for n in agreed_visual + confident_visual + (ocr.get("names") or []) + visual_roads:
         if n and n.lower() not in GENERIC_Q:
             names.append(n)
     stop = brand_tokens(brands)
@@ -113,6 +115,19 @@ def compose(ocr: dict, visual: dict, exif: dict, kind: dict, rev: dict) -> dict:
         n for n in names + (visual.get("searchableNames") or [])
         if n and len(n.strip()) >= 5 and n.lower() not in GENERIC_Q
     ))
+    hypotheses = [
+        row for row in (visual.get("landmarkHypotheses") or [])
+        if float(row.get("confidence") or 0.0) >= 0.45 and row.get("name")
+    ]
+    hypothesis_queries = [
+        " ".join(filter(None, [str(row.get("name") or "").strip(), str(row.get("region") or "").strip()]))
+        for row in hypotheses
+    ]
+    model_queries = list(dict.fromkeys(
+        re.sub(r"\s+", " ", str(q)).strip()
+        for q in list(visual.get("searchQueries") or []) + hypothesis_queries
+        if q and 4 <= len(str(q).strip()) <= 140
+    ))[:6]
 
     if brands and city:
         plan = "intersect"
@@ -157,6 +172,9 @@ def compose(ocr: dict, visual: dict, exif: dict, kind: dict, rev: dict) -> dict:
         "visual_names": visual.get("searchableNames") or [],
         "search_names": search_names,
         "phones": ocr.get("phones") or [],
+        "model_queries": model_queries,
+        "text_reads": visual.get("textReads") or [],
+        "landmark_hypotheses": hypotheses,
     }
 
 
@@ -169,15 +187,24 @@ async def hunt(mind: dict, gps) -> dict:
         scene = await search_brand_scene(mind["brands"], mind["city"], mind.get("infra") or [])
         # A distinctive second sign may not be in the known-brand vocabulary.
         # Search it too so it can be paired with the primary brand candidate.
-        if mind.get("distinctive"):
+        if mind.get("distinctive") or mind.get("model_queries"):
             contextual = [
                 f"{brand['label']} {name}"
                 for brand in mind["brands"][:2]
                 for name in mind["distinctive"][:2]
             ]
-            nominatim = await search_places(contextual + mind["distinctive"][:2], mind.get("city"), max_queries=4)
+            nominatim = await search_places(
+                (mind.get("model_queries") or [])[:2] + contextual + mind["distinctive"][:2],
+                mind.get("city"),
+                max_queries=5,
+            )
     elif mind.get("plan") == "names" and mind.get("distinctive"):
-        nominatim = await search_places(mind["distinctive"][:3], mind.get("city"))
+        nominatim = await search_places(
+            (mind.get("model_queries") or [])[:3] + mind["distinctive"][:3],
+            mind.get("city"),
+        )
     elif mind.get("plan") == "brands" and mind.get("brands"):
         nominatim = await search_places([b["label"] for b in mind["brands"][:2]], None, max_queries=2)
+    elif mind.get("model_queries"):
+        nominatim = await search_places((mind.get("model_queries") or [])[:4], mind.get("city"), max_queries=4)
     return {"scene": scene, "nominatim": nominatim}

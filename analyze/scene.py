@@ -49,6 +49,7 @@ def pick_city(visual: dict, ocr: dict) -> str | None:
         visual.get("explanation"),
         visual.get("regionHints"),
         visual.get("searchableNames"),
+        [row.get("text") for row in visual.get("textReads") or [] if float(row.get("confidence") or 0) >= 0.72],
         " ".join(f"{c.get('kind')} {c.get('observation')} {c.get('geographicImplication')}" for c in visual.get("clues") or []),
     )
     for pat, city in CITY_FROM_CLUE:
@@ -66,9 +67,11 @@ def pick_city(visual: dict, ocr: dict) -> str | None:
 
 def detect_brands(visual: dict, ocr: dict) -> list[dict]:
     agreed = [a.get("vision") or "" for a in ocr.get("vision_agreements") or []]
+    confident = list(ocr.get("vision_businesses_confident") or [])
     blob = _blob(
         ocr.get("text"),
         agreed,
+        confident,
     )
     found = []
     for b in BRAND_PATTERNS:
@@ -86,6 +89,15 @@ def detect_brands(visual: dict, ocr: dict) -> list[dict]:
     for agreement in ocr.get("vision_agreements") or []:
         name = (agreement.get("vision") or "").strip()
         if not (4 <= len(name) <= 40) or name.lower() in known:
+            continue
+        slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+        if slug and slug not in known_ids:
+            found.append({"id": slug, "match": re.escape(name), "osm": re.escape(name), "label": name})
+            known.add(name.lower())
+            known_ids.add(slug)
+    for name in confident:
+        name = (name or "").strip()
+        if not (4 <= len(name) <= 60) or name.lower() in known:
             continue
         slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
         if slug and slug not in known_ids:

@@ -6,7 +6,7 @@ import time
 import traceback
 from pathlib import Path
 
-from .exif_tools import classify_image, jpeg_bytes_for_search, read_exif
+from .exif_tools import classify_image, jpeg_bytes_for_search, jpeg_vision_bundle, read_exif
 from .ocr_tools import apply_gemini_signs, run_ocr
 from .places import bbox_around, nearby_elevated, overpass_named, pair_names, reverse_geocode
 from .rank import rank
@@ -15,67 +15,6 @@ from .reverse import reverse_search
 from .vision import ask_gemini
 from .google_places import bounded_google_place_candidates
 from .street_sources import attach_free_street_sources
-
-
-KALYAN_REFERENCE_DHASH = int("b73e1c2c6d61e536", 16)
-
-
-def _dhash(path: Path) -> int | None:
-    """Small visual fingerprint used for verified demo/reference scenes."""
-    try:
-        from PIL import Image
-
-        with Image.open(path) as image:
-            gray = image.convert("L").resize((9, 8))
-            value = 0
-            for y in range(8):
-                for x in range(8):
-                    value = (value << 1) | int(gray.getpixel((x, y)) > gray.getpixel((x + 1, y)))
-            return value
-    except Exception:
-        return None
-
-
-def _verified_reference_result(path: Path, filename: str, analysis_id: str | None) -> dict | None:
-    fingerprint = _dhash(path)
-    filename_hint = "2026-10-04 104223" in filename.lower()
-    if fingerprint is None or ((fingerprint ^ KALYAN_REFERENCE_DHASH).bit_count() > 9 and not filename_hint):
-        return None
-    candidate = {
-        "id": "verified-kalyan-koramangala",
-        "name": "Kalyan Jewellers — Koramangala",
-        "address": "Jyoti Nivas College Road, Koramangala, Bengaluru, Karnataka 560095, India",
-        "lat": 12.9346427,
-        "lon": 77.6241613,
-        "radius_m": 30,
-        "tier": "pin",
-        "score": 98,
-        "base_score": 98,
-        "source": "verified-reference",
-        "why": ["The storefront, Kannada signage, elevated road and surrounding streets match the verified Koramangala reference."],
-        "maps": "https://www.google.com/maps/search/?api=1&query=Kalyan+Jewellers+Koramangala+Bengaluru",
-        "street_view": "https://maps.google.com/maps?layer=c&cbll=12.9346427,77.6241613&cbp=11,215,0,0,0&output=svembed",
-        "street_view_query": "Kalyan Jewellers Koramangala Bengaluru",
-    }
-    return {
-        "analysis_id": analysis_id,
-        "filename": filename,
-        "kind": "street scene",
-        "kind_reasons": ["Verified visual reference match"],
-        "exif": {"make": None, "model": None, "datetime": None, "gps": None},
-        "ocr_text": "KALYAN · Kannada storefront signage",
-        "plates": [],
-        "visual": {"ok": True, "regionHints": ["Bengaluru", "Karnataka", "India"], "searchableNames": ["Kalyan Jewellers"], "clues": []},
-        "reverse": {"engines": [], "guesses": [], "pages": [], "errors": []},
-        "aspects": [],
-        "candidates": [candidate],
-        "primary": candidate,
-        "clues": [],
-        "summary": "Verified match: Kalyan Jewellers, Koramangala, Bengaluru.",
-        "thinking": [],
-        "elapsed_ms": 0,
-        "limits": [],
-    }
 
 
 def _event(obj: dict) -> str:
@@ -98,24 +37,15 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
             }
         )
 
-        verified = await asyncio.to_thread(_verified_reference_result, path, filename, analysis_id)
-        if verified:
-            verified["elapsed_ms"] = int((time.time() - t0) * 1000)
-            yield _event({"type": "step", "id": "vision", "status": "done", "label": "Scene matched", "detail": "Verified Koramangala reference"})
-            yield _event({"type": "step", "id": "places", "status": "done", "label": "Place matched", "detail": "Kalyan Jewellers · Koramangala"})
-            yield _event({"type": "step", "id": "rank", "status": "done", "label": "Resolved", "detail": "Kalyan Jewellers — Koramangala"})
-            yield _event({"type": "result", "data": verified})
-            return
-
         gps = exif.get("gps")
         if gps:
             yield _event({"type": "step", "id": "exif", "status": "done", "label": "EXIF GPS", "detail": f"{gps['lat']:.5f}, {gps['lon']:.5f}"})
         else:
             yield _event({"type": "step", "id": "exif", "status": "done", "label": "EXIF", "detail": "No GPS in file"})
 
-        yield _event({"type": "step", "id": "ocr", "status": "run", "label": "Reading text in the image"})
-        yield _event({"type": "step", "id": "rev", "status": "run", "label": "Reverse image search"})
-        yield _event({"type": "step", "id": "vision", "status": "run", "label": "Gemini visual clues"})
+        yield _event({"type": "step", "id": "ocr", "status": "run", "label": "Reading visible text"})
+        yield _event({"type": "step", "id": "rev", "status": "run", "label": "Matching image sources"})
+        yield _event({"type": "step", "id": "vision", "status": "run", "label": "Understanding the scene"})
 
         jpeg = await asyncio.to_thread(jpeg_bytes_for_search, path)
 
@@ -135,7 +65,8 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
         geo_task = asyncio.create_task(do_revgeo())
         ocr_r = await ocr_task
         ocr_text_for_vision = "" if isinstance(ocr_r, Exception) else (ocr_r.get("text") or "")
-        vis_task = asyncio.create_task(ask_gemini(jpeg, ocr_text_for_vision))
+        vision_bundle = await asyncio.to_thread(jpeg_vision_bundle, path)
+        vis_task = asyncio.create_task(ask_gemini(vision_bundle, ocr_text_for_vision))
         rev_r, geo_r, vis_r = await asyncio.gather(rev_task, geo_task, vis_task, return_exceptions=True)
         if isinstance(ocr_r, Exception):
             ocr = {"text": "", "lines": [], "plates": [], "coordinates": [], "plus_codes": [], "names": [], "urls": []}
@@ -161,7 +92,7 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
                 "type": "step",
                 "id": "ocr",
                 "status": "done",
-                "label": "OCR",
+                "label": "Text signals",
                 "detail": ocr_preview or ("failed: " + (ocr_err or "no text")),
             }
         )
@@ -178,7 +109,7 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
                     "type": "step",
                     "id": "vision",
                     "status": "done",
-                    "label": "Gemini",
+                    "label": "Visual signals",
                     "detail": f"{visual.get('model')} · {nclues} clues · {', '.join((visual.get('regionHints') or [])[:3]) or 'no region'}",
                 }
             )
@@ -188,7 +119,7 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
                     "type": "step",
                     "id": "vision",
                     "status": "done",
-                    "label": "Gemini",
+                    "label": "Visual signals",
                     "detail": visual.get("error") or "unavailable",
                 }
             )
@@ -295,14 +226,14 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
             ranked["clues"].append(
                 {
                     "icon": icon.get((c.get("kind") or "").lower(), "◈"),
-                    "title": f"Gemini · {c.get('kind')} · {c.get('strength')}",
+                    "title": f"Visual clue · {c.get('kind')} · {c.get('strength')}",
                     "body": f"{c.get('observation')} → {c.get('geographicImplication')}",
                 }
             )
         for t in reversed(mind.get("thoughts") or []):
             ranked["clues"].insert(0, {"icon": "🧠", "title": "How it linked the clues", "body": t})
         if visual.get("explanation"):
-            ranked["clues"].append({"icon": "◈", "title": "Gemini summary", "body": visual["explanation"]})
+            ranked["clues"].append({"icon": "◈", "title": "Scene summary", "body": visual["explanation"]})
         if visual.get("drivingSide") and visual.get("drivingSide") != "unclear":
             ranked["clues"].append(
                 {
@@ -321,12 +252,12 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
             aspect("gps", "EXIF GPS", "hit" if gps else "empty", f"{gps['lat']:.5f}, {gps['lon']:.5f}" if gps else "No GPS tag"),
             aspect("camera", "Camera", "hit" if exif.get("make") else "empty", " ".join(filter(None, [exif.get("make"), exif.get("model")])) or "None"),
             aspect("time", "Capture time", "hit" if exif.get("datetime") else "empty", exif.get("datetime") or "None"),
-            aspect("ocr", "Text / OCR", "hit" if ocr.get("text") else "empty", (ocr.get("text") or "No text")[:120]),
+            aspect("ocr", "Visible text", "hit" if ocr.get("text") else "empty", (ocr.get("text") or "No text")[:120]),
             aspect("plates", "Number plate", "hit" if ocr.get("plates") else "empty", ", ".join(p["plate"] + " → " + p["region"] for p in ocr.get("plates") or []) or "None"),
             aspect("coords", "Printed coordinates", "hit" if ocr.get("coordinates") else "empty", str((ocr.get("coordinates") or [{}])[0].get("raw") if ocr.get("coordinates") else "None")),
             aspect(
                 "vision",
-                "Gemini vision",
+                "Visual analysis",
                 "hit" if visual.get("ok") else ("fail" if visual.get("error") else "empty"),
                 (visual.get("explanation") or visual.get("error") or "off")[:120],
             ),
@@ -372,6 +303,9 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
                 "languagesSeen": visual.get("languagesSeen") or [],
                 "drivingSide": visual.get("drivingSide"),
                 "searchableNames": visual.get("searchableNames") or [],
+                "textReads": visual.get("textReads") or [],
+                "searchQueries": visual.get("searchQueries") or [],
+                "landmarkHypotheses": visual.get("landmarkHypotheses") or [],
                 "clues": visual.get("clues") or [],
                 "explanation": visual.get("explanation"),
                 "error": visual.get("error"),

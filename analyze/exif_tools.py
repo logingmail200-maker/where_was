@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import io
 
 import exifread
 from PIL import Image, ImageOps
@@ -114,8 +115,33 @@ def jpeg_bytes_for_search(path: Path, max_side: int = 1400) -> bytes:
     scale = min(1.0, max_side / max(w, h))
     if scale < 1:
         im = im.resize((max(1, int(w * scale)), max(1, int(h * scale))), Image.Resampling.LANCZOS)
-    import io
-
     buf = io.BytesIO()
     im.save(buf, format="JPEG", quality=88, optimize=True)
     return buf.getvalue()
+
+
+def jpeg_vision_bundle(path: Path) -> list[tuple[str, bytes]]:
+    """Return the full frame and readable overlapping crops in one bundle."""
+    image = ImageOps.exif_transpose(Image.open(path)).convert("RGB")
+    width, height = image.size
+    boxes = [
+        ("full scene", (0.0, 0.0, 1.0, 1.0)),
+        ("upper signage band", (0.0, 0.06, 1.0, 0.55)),
+        ("left storefronts", (0.0, 0.16, 0.58, 0.84)),
+        ("right storefronts", (0.42, 0.16, 1.0, 0.84)),
+        ("central road and vehicles", (0.17, 0.28, 0.83, 0.94)),
+    ]
+    bundle: list[tuple[str, bytes]] = []
+    for label, (left, top, right, bottom) in boxes:
+        crop = image.crop((int(width * left), int(height * top), int(width * right), int(height * bottom)))
+        max_side = 1800 if label != "full scene" else 1600
+        scale = min(1.0, max_side / max(crop.size))
+        if scale < 1.0:
+            crop = crop.resize(
+                (max(1, int(crop.width * scale)), max(1, int(crop.height * scale))),
+                Image.Resampling.LANCZOS,
+            )
+        buf = io.BytesIO()
+        crop.save(buf, format="JPEG", quality=91, optimize=True)
+        bundle.append((label, buf.getvalue()))
+    return bundle

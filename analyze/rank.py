@@ -174,6 +174,8 @@ def rank(
         if h.get("source") == "google-maps":
             score += 8
             score += round((float(h.get("query_strength") or 0.45) - 0.45) * 32)
+            support_count = int(h.get("support_count") or 1)
+            score += min(18, max(0, support_count - 1) * 7)
         if name_hit:
             score += 10
         if exact:
@@ -223,12 +225,18 @@ def rank(
         # stronger than a chain-name match. Preserve that separation in score.
         score = max(20, min(96 if partner else 86, score))
         why = [f"Place search for “{h.get('query') or h.get('name')}” via OpenStreetMap."]
+        matched_queries = h.get("matched_queries") or []
+        if len(matched_queries) > 1:
+            why.append(f"{len(matched_queries)} independent clue combinations resolved to this same place.")
+        nearby_names = [name for name in (h.get("nearby_names") or []) if name and name != h.get("name")]
+        if nearby_names:
+            why.append("Nearby mapped names: " + ", ".join(nearby_names[:3]) + ".")
         if partner:
             other = partner["b"] if partner["a"].get("osm_id") == h.get("osm_id") else partner["a"]
             why.append(f"Second name “{other.get('name')}” is {partner['meters']} m away — two clues, not a chain guess.")
         if near_el:
             why.append(f"Mapped {near_el.get('name')} within 350 m matches infra in the photo ({', '.join(infra_words or [])}).")
-        if exact and (partner or nearby_queries) and (near_el or not infra_words) and not is_chain:
+        if exact and (partner or nearby_queries or len(matched_queries) >= 2) and (near_el or not infra_words) and not is_chain:
             tier, radius = "pin", 120
             why.append("Unique name plus an independently mapped nearby name.")
         elif exact:
