@@ -41,7 +41,8 @@ def _warmup():
     key = load_gemini_key()
     if key:
         os.environ["GEMINI_API_KEY"] = key
-    threading.Thread(target=_engine, daemon=True).start()
+    if os.getenv("WHEREWAS_LIGHTWEIGHT") != "1":
+        threading.Thread(target=_engine, daemon=True).start()
 
 
 @app.get("/api/health")

@@ -9,3 +9,5 @@ services:
     envVars:
       - key: GEMINI_API_KEY
         sync: false
+      - key: WHEREWAS_LIGHTWEIGHT
+        value: "1"

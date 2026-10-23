@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 import tempfile
 from pathlib import Path
@@ -57,6 +58,23 @@ def _ocr_pil(engine, im: Image.Image) -> list[dict]:
 
 def run_ocr(path: Path) -> dict:
     """Multi-scale OCR with targeted sign crops and a low-confidence rotation fallback."""
+    # Render's free instance cannot hold ONNX OCR and a Chromium map browser
+    # in memory at the same time. The multi-crop visual reader supplies the
+    # same normalized structure through apply_gemini_signs(), so skip only the
+    # redundant local model on memory-constrained deployments.
+    if os.getenv("WHEREWAS_LIGHTWEIGHT") == "1":
+        return {
+            "text": "",
+            "lines": [],
+            "plates": [],
+            "coordinates": [],
+            "plus_codes": [],
+            "phones": [],
+            "names": [],
+            "urls": [],
+            "infra_words": [],
+            "brands": [],
+        }
     engine = _engine()
     im = ImageOps.exif_transpose(Image.open(path)).convert("RGB")
     w, h = im.size
