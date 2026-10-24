@@ -3,6 +3,7 @@ const $$ = (s) => [...document.querySelectorAll(s)];
 let map, selectedFile, previewUrl, lastResult, activeCandidate, activePopup;
 let mapLayers = [];
 let navigationMarker, navigationResults = [], navigationTimer;
+let streetInteractionEnabled = false;
 
 const MAP_STYLES = {
   dark: "https://tiles.openfreemap.org/styles/dark",
@@ -155,10 +156,20 @@ function setView(view) {
   $$(".view-toggle button").forEach((button) => button.classList.toggle("on", button.dataset.view === view));
   $("#compare-drawer").hidden = view !== "compare";
   $("#street-view").hidden = view !== "street";
+  if (view !== "street") setStreetInteraction(false);
   if (!activeCandidate) return;
   if (view === "map") drawCandidates(lastResult?.candidates || [], activeCandidate.id, false);
   if (view === "street") showStreetContext();
   if (view === "compare") drawCandidates(lastResult?.candidates || [], activeCandidate.id, true);
+}
+
+function setStreetInteraction(enabled) {
+  streetInteractionEnabled = enabled;
+  $("#street-view").classList.toggle("is-interactive", enabled);
+  $("#street-scroll-guard").hidden = enabled;
+  const button = $("#street-interact");
+  button.textContent = enabled ? "Done" : "Explore 360°";
+  button.setAttribute("aria-pressed", String(enabled));
 }
 
 function showStreetContext() {
@@ -172,6 +183,7 @@ function showStreetContext() {
   if ($("#street-frame").src !== streetUrl) $("#street-frame").src = streetUrl;
   $("#street-name").textContent = activeCandidate.name || "Selected place";
   $("#street-view").hidden = false;
+  setStreetInteraction(false);
 }
 
 function renderPlaceResults(results) {
@@ -336,6 +348,8 @@ $$(".view-toggle button").forEach((button) => button.addEventListener("click", (
 $("#open-street").addEventListener("click", () => setView("street"));
 $("#show-all").addEventListener("click", () => setView("map"));
 $("#street-close").addEventListener("click", () => setView("map"));
+$("#street-interact").addEventListener("click", () => setStreetInteraction(!streetInteractionEnabled));
+$("#street-scroll-guard").addEventListener("click", () => setStreetInteraction(true));
 $("#confirm-result").addEventListener("click", async () => {
   if (!lastResult?.analysis_id || !activeCandidate) return;
   const button = $("#confirm-result");

@@ -6,7 +6,7 @@
   <title>WhereWas — visual search</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/maplibre-gl.css?v=1"><link rel="stylesheet" href="/styles.css?v=55">
+  <link rel="stylesheet" href="/maplibre-gl.css?v=1"><link rel="stylesheet" href="/styles.css?v=56">
 </head>
 <body>
   <div class="noise" aria-hidden="true"></div>
@@ -57,8 +57,9 @@
         <div class="compare-image"><img id="compare-image" alt="Uploaded source image"><span></span></div><footer><i></i><span>VISUAL REFERENCE</span></footer>
       </section>
       <section class="street-view" id="street-view" hidden>
-        <header><span><i></i> STREET VIEW</span><button id="street-close" type="button" aria-label="Close Street View">×</button></header>
+        <header><span><i></i> STREET VIEW</span><div><button class="street-interact" id="street-interact" type="button" aria-pressed="false">Explore 360°</button><button id="street-close" type="button" aria-label="Close Street View">×</button></div></header>
         <iframe id="street-frame" title="Street View for selected place" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+        <button class="street-scroll-guard" id="street-scroll-guard" type="button"><b>Explore the panorama</b><span>Tap to control 360° · tap “Done” to resume page scrolling</span></button>
         <footer><b id="street-name">Selected place</b><span>Street imagery opens by mapped place name.</span></footer>
       </section>
       <div class="view-toggle"><button class="on" data-view="street" type="button">Street context</button><button data-view="map" type="button">Candidate map</button><button data-view="compare" type="button">Compare</button></div>
@@ -66,6 +67,6 @@
     <div class="credit">WHEREWAS <i></i> CREDITS — SMARTY</div>
     <div class="map-modes" role="group" aria-label="Map style"><button class="on" data-style="dark" type="button">Map</button><button data-style="satellite" type="button">Satellite</button></div>
   </main>
-  <script src="/maplibre-gl.js?v=1"></script><script src="/app.js?v=54"></script>
+  <script src="/maplibre-gl.js?v=1"></script><script src="/app.js?v=55"></script>
 </body>
 </html>

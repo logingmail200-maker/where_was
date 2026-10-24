@@ -8,13 +8,15 @@ from pathlib import Path
 
 from .exif_tools import classify_image, jpeg_bytes_for_search, jpeg_vision_bundle, read_exif
 from .ocr_tools import apply_gemini_signs, run_ocr
-from .places import bbox_around, nearby_elevated, overpass_named, pair_names, reverse_geocode
+from .places import bbox_around, nearby_elevated, overpass_named, pair_names, reverse_geocode, search_places
 from .rank import rank
 from .think import compose, hunt
 from .reverse import reverse_search
-from .vision import ask_gemini
+from .vision import ask_gemini, ask_person_guard
 from .google_places import bounded_google_place_candidates
-from .street_sources import attach_free_street_sources
+from .street_sources import attach_free_street_sources, verify_shortlist_on_demand
+from .person_guard import detect_prominent_person
+from .retrieval import search as search_retrieval
 
 
 def _event(obj: dict) -> str:
@@ -27,6 +29,11 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
         yield _event({"type": "step", "id": "read", "status": "run", "label": "Reading the file"})
         exif = await asyncio.to_thread(read_exif, path)
         kind = await asyncio.to_thread(classify_image, path, exif)
+        person = await asyncio.to_thread(detect_prominent_person, path)
+        jpeg = await asyncio.to_thread(jpeg_bytes_for_search, path)
+        if not person.get("available"):
+            person = await ask_person_guard(jpeg)
+        privacy_limited = bool(person.get("prominent")) or not bool(person.get("available"))
         yield _event(
             {
                 "type": "step",
@@ -36,6 +43,14 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
                 "detail": f"{kind['kind']} · {kind.get('width')}×{kind.get('height')}",
             }
         )
+
+        if privacy_limited:
+            detail = "Prominent person detected — fine street matching is disabled." if person.get("prominent") else "Privacy check unavailable — fine street matching is disabled."
+            yield _event({"type": "step", "id": "privacy", "status": "done", "label": "Privacy guard", "detail": detail})
+        elif person.get("available"):
+            yield _event({"type": "step", "id": "privacy", "status": "done", "label": "Privacy guard", "detail": "No prominent person detected."})
+        else:
+            yield _event({"type": "step", "id": "privacy", "status": "done", "label": "Privacy guard", "detail": "Detector unavailable; no face crop is retained."})
 
         gps = exif.get("gps")
         if gps:
@@ -47,12 +62,12 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
         yield _event({"type": "step", "id": "rev", "status": "run", "label": "Matching image sources"})
         yield _event({"type": "step", "id": "vision", "status": "run", "label": "Understanding the scene"})
 
-        jpeg = await asyncio.to_thread(jpeg_bytes_for_search, path)
-
         async def do_ocr():
             return await asyncio.to_thread(run_ocr, path)
 
         async def do_rev():
+            if privacy_limited:
+                return {"engines": [], "guesses": [], "pages": [], "errors": ["Skipped by privacy guard"]}
             return await reverse_search(jpeg)
 
         async def do_revgeo():
@@ -141,13 +156,20 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
                 "detail": thought,
             }
         )
-        google_task = asyncio.create_task(bounded_google_place_candidates(mind))
-        hunt_task = asyncio.create_task(asyncio.wait_for(hunt(mind, gps), timeout=18.0))
+        if privacy_limited:
+            # We only resolve an approximate city/region in a personal photo;
+            # no business/landmark branch matching or street-image retrieval.
+            city_hint = mind.get("city") or next(iter(visual.get("regionHints") or []), None)
+            google_task = asyncio.create_task(asyncio.sleep(0, result=[]))
+            hunt_task = asyncio.create_task(search_places([city_hint], None, max_queries=1) if city_hint else asyncio.sleep(0, result=[]))
+        else:
+            google_task = asyncio.create_task(bounded_google_place_candidates(mind))
+            hunt_task = asyncio.create_task(asyncio.wait_for(hunt(mind, gps), timeout=18.0))
         hunted_r, google_r = await asyncio.gather(hunt_task, google_task, return_exceptions=True)
         hunted = (
             hunted_r
             if isinstance(hunted_r, dict)
-            else {"scene": {"hits": [], "pairs": [], "groups": []}, "nominatim": []}
+            else {"scene": {"hits": [], "pairs": [], "groups": []}, "nominatim": hunted_r if isinstance(hunted_r, list) else []}
         )
         google_hits = google_r if isinstance(google_r, list) else []
         scene = hunted.get("scene") or {"hits": [], "pairs": [], "groups": []}
@@ -192,6 +214,16 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
             }
         )
 
+        retrieval_hits: list[dict] = []
+        if not privacy_limited:
+            yield _event({"type": "step", "id": "retrieve", "status": "run", "label": "Searching licensed street imagery"})
+            try:
+                retrieval_hits = await asyncio.to_thread(search_retrieval, path, mind.get("city"), top_k=10)
+                retrieval_detail = f"{len(retrieval_hits)} verified visual candidates" if retrieval_hits else "No local reference index for this routed city"
+            except Exception as exc:
+                retrieval_detail = f"Unavailable: {str(exc)[:100]}"
+            yield _event({"type": "step", "id": "retrieve", "status": "done", "label": "Licensed street imagery", "detail": retrieval_detail})
+
         yield _event({"type": "step", "id": "rank", "status": "run", "label": "Ranking candidates"})
         ranked = rank(
             exif_gps=gps,
@@ -209,10 +241,26 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
             elevated=elevated,
             infra_words=infra,
             regional_hypotheses=mind.get("regional_hypotheses") or [],
+            retrieval_candidates=retrieval_hits,
         )
         # Query free, crowdsourced street-imagery only after the candidate
         # shortlist exists. This avoids a costly/unbounded worldwide scan.
-        await attach_free_street_sources(ranked["candidates"])
+        if not privacy_limited:
+            await attach_free_street_sources(ranked["candidates"])
+            await verify_shortlist_on_demand(path, ranked["candidates"])
+            ranked["candidates"].sort(key=lambda candidate: (-float(candidate.get("score") or 0), candidate.get("radius_m") or 999999))
+            ranked["primary"] = next(
+                (candidate for candidate in ranked["candidates"] if candidate.get("score", 0) >= 65 and candidate.get("tier") not in {"city", "region"}),
+                None,
+            )
+        else:
+            for candidate in ranked["candidates"]:
+                candidate["tier"] = "city"
+                candidate["radius_m"] = max(25_000, int(candidate.get("radius_m") or 0))
+                candidate["score"] = min(55, candidate.get("score") or 55)
+                candidate["why"] = ["A prominent person is visible, so this result is intentionally limited to city scale."]
+            ranked["primary"] = None
+            ranked["summary"] = "A prominent person is visible. Fine-grained place matching was not run; upload a place-only crop for street-level candidates."
         icon = {
             "architecture": "⌂",
             "vegetation": "♧",
@@ -319,6 +367,7 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
                 "explanation": visual.get("explanation"),
                 "error": visual.get("error"),
             },
+            "privacy": person,
             "reverse": {
                 "engines": rev.get("engines") or [],
                 "guesses": rev.get("guesses") or [],

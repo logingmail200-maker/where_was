@@ -63,6 +63,7 @@ def rank(
     elevated: list[dict] | None = None,
     infra_words: list[str] | None = None,
     regional_hypotheses: list[dict] | None = None,
+    retrieval_candidates: list[dict] | None = None,
 ) -> dict:
     candidates: list[dict] = []
     clues: list[dict] = []
@@ -87,6 +88,34 @@ def rank(
             source="exif",
         )
         clues.append({"icon": "⌖", "title": "EXIF GPS", "body": f"{exif_gps['lat']:.5f}, {exif_gps['lon']:.5f}"})
+
+    # Retrieval candidates come only from the locally-built licensed imagery
+    # index. They remain candidates until the visual geometry agrees.
+    for item in retrieval_candidates or []:
+        similarity = float(item.get("similarity") or 0.0)
+        inliers = int(item.get("verified_inliers") or 0)
+        ratio = float(item.get("inlier_ratio") or 0.0)
+        visual_score = max(0.0, min(1.0, (similarity + 1.0) / 2.0))
+        geometry_score = min(1.0, inliers / 45.0) * max(0.25, ratio)
+        score = round(min(88, 100 * (0.62 * visual_score + 0.38 * geometry_score)))
+        verified = inliers >= 12 and ratio >= 0.28
+        add_cand(
+            id=f"retrieval-{item.get('provider', 'ref')}-{item.get('reference_id', '')}",
+            name="Licensed street-imagery match",
+            address="Reference-image coordinate; verify in the street viewer.",
+            lat=float(item["lat"]), lon=float(item["lon"]),
+            radius_m=120 if verified else 800,
+            tier="block" if verified else "city",
+            score=score,
+            why=[
+                f"Visual retrieval similarity {similarity:.3f} against licensed {item.get('provider', 'street')} imagery.",
+                f"Geometric verification: {inliers} consistent local features ({ratio:.0%} inlier ratio).",
+                "This is a ranked reference-frame match, not a certain street address.",
+            ],
+            source="retrieval",
+            reference_image=item.get("reference_image"),
+            reference_attribution=item.get("attribution"),
+        )
 
     for i, c in enumerate(ocr_coords):
         via = c.get("via") or "decimal"

@@ -41,6 +41,13 @@ def _warmup():
     key = load_gemini_key()
     if key:
         os.environ["GEMINI_API_KEY"] = key
+    # Keep provider tokens in the gitignored .env file. Never send them to the
+    # browser or include them in API responses/logs.
+    env_path = ROOT / ".env"
+    if env_path.is_file():
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            if line.startswith("MAPILLARY_ACCESS_TOKEN=") and not os.getenv("MAPILLARY_ACCESS_TOKEN"):
+                os.environ["MAPILLARY_ACCESS_TOKEN"] = line.split("=", 1)[1].strip().strip("'\"")
     if os.getenv("WHEREWAS_LIGHTWEIGHT") != "1":
         threading.Thread(target=_engine, daemon=True).start()
 

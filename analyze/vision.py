@@ -59,6 +59,41 @@ def load_gemini_key() -> str:
     return ""
 
 
+async def ask_person_guard(image: bytes) -> dict:
+    """Small remote fallback for the privacy guard when no local detector exists."""
+    key = load_gemini_key()
+    if not key:
+        return {"available": False, "prominent": False, "error": "No local detector or vision key"}
+    import base64
+
+    body = {
+        "contents": [{"parts": [
+            {"text": "Is a person visually prominent in this image (roughly 9% or more of the frame, or the main subject)? Return only JSON."},
+            {"inline_data": {"mime_type": "image/jpeg", "data": base64.b64encode(image).decode("ascii")}},
+        ]}],
+        "generationConfig": {
+            "responseMimeType": "application/json",
+            "responseSchema": {"type": "OBJECT", "properties": {"prominent": {"type": "BOOLEAN"}}, "required": ["prominent"]},
+            "temperature": 0,
+        },
+    }
+    async with httpx.AsyncClient(timeout=httpx.Timeout(7.0, connect=3.0)) as client:
+        for model in MODELS[:2]:
+            try:
+                response = await client.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+                    headers={"Content-Type": "application/json", "x-goog-api-key": key}, json=body,
+                )
+                if response.status_code != 200:
+                    continue
+                parts = (response.json().get("candidates") or [{}])[0].get("content", {}).get("parts") or []
+                parsed = json.loads("".join(part.get("text") or "" for part in parts))
+                return {"available": True, "prominent": bool(parsed.get("prominent")), "source": "vision-guard"}
+            except Exception:
+                continue
+    return {"available": False, "prominent": False, "error": "Vision privacy guard unavailable"}
+
+
 def _strip_coords(obj: dict) -> dict:
     """Gemini must not become a fake GPS. Drop anything that looks like coordinates."""
     blob = json.dumps(obj, ensure_ascii=False)

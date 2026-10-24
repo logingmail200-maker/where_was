@@ -9,5 +9,7 @@ services:
     envVars:
       - key: GEMINI_API_KEY
         sync: false
+      - key: MAPILLARY_ACCESS_TOKEN
+        sync: false
       - key: WHEREWAS_LIGHTWEIGHT
         value: "1"
