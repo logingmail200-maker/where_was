@@ -128,6 +128,15 @@ def compose(ocr: dict, visual: dict, exif: dict, kind: dict, rev: dict) -> dict:
         for q in list(visual.get("searchQueries") or []) + hypothesis_queries
         if q and 4 <= len(str(q).strip()) <= 140
     ))[:6]
+    regional_hypotheses = [
+        row for row in (visual.get("regionalHypotheses") or [])
+        if float(row.get("confidence") or 0.0) >= 0.28
+        and (row.get("country") or row.get("region"))
+    ]
+    regional_queries = list(dict.fromkeys(
+        " ".join(filter(None, [str(row.get("region") or "").strip(), str(row.get("country") or "").strip()])).strip()
+        for row in regional_hypotheses
+    ))[:5]
 
     if brands and city:
         plan = "intersect"
@@ -144,8 +153,11 @@ def compose(ocr: dict, visual: dict, exif: dict, kind: dict, rev: dict) -> dict:
         plan = "names"
         thoughts.append("No brand∩city lock — search distinctive names only.")
     else:
-        plan = "weak"
-        thoughts.append("Not enough interlocking clues for a small radius.")
+        plan = "regional" if regional_queries else "weak"
+        if regional_queries:
+            thoughts.append("No unique text or landmark; compare broad regions from vegetation, terrain, roads, fields and climate instead of inventing a street pin.")
+        else:
+            thoughts.append("Not enough interlocking clues for a small radius.")
 
     if len(brands) >= 2:
         thoughts.append(
@@ -175,6 +187,9 @@ def compose(ocr: dict, visual: dict, exif: dict, kind: dict, rev: dict) -> dict:
         "model_queries": model_queries,
         "text_reads": visual.get("textReads") or [],
         "landmark_hypotheses": hypotheses,
+        "environment_profile": visual.get("environmentProfile") or {},
+        "regional_hypotheses": regional_hypotheses,
+        "regional_queries": regional_queries,
     }
 
 
@@ -207,4 +222,6 @@ async def hunt(mind: dict, gps) -> dict:
         nominatim = await search_places([b["label"] for b in mind["brands"][:2]], None, max_queries=2)
     elif mind.get("model_queries"):
         nominatim = await search_places((mind.get("model_queries") or [])[:4], mind.get("city"), max_queries=4)
+    elif mind.get("plan") == "regional" and mind.get("regional_queries"):
+        nominatim = await search_places(mind["regional_queries"][:5], None, max_queries=5)
     return {"scene": scene, "nominatim": nominatim}

@@ -33,11 +33,14 @@ Return ONLY JSON with:
 - textReads: every useful visible text fragment as {{text, kind, confidence, imageIndex}}. kind is business | road | locality | transit | phone | institution | other. confidence is 0 to 1.
 - searchQueries: up to 6 concise place-search queries built only from visible text and supported region hints. Prefer business + road + city, phone number, or two businesses in one scene. Never add an unobserved place.
 - landmarkHypotheses: up to 3 possible known places as {{name, region, confidence, reasons}}. Use visual recognition here when exact lettering is ambiguous. Keep confidence below 0.7 unless multiple independent visual details match. Hypotheses are for candidate discovery, not proof.
+- environmentProfile: {{biome, climate, terrain, vegetation, agriculture, soil, roadDesign, mountainForm}}. Use concise observed descriptions. For vegetation, identify a plant family/species only when morphology is distinctive; otherwise describe form (for example tea rows, coconut palms, dry scrub). A plant's native or cultivated range is a regional clue, never proof of one country.
+- regionalHypotheses: up to 5 broad natural-scene candidates as {{country, region, confidence, reasons, counterEvidence}}. Combine vegetation with terrain, field layout, road engineering, soil, climate, driving side and architecture. Confidence is 0 to 1 and must stay below 0.78 without unique text/landmark evidence. Include plausible alternatives instead of forcing one country.
 - explanation: one short sentence
 
 Mark generic clues weak. Treat chain brands as search targets, not neighbourhood names. If a flyover/metro pillar id is legible, quote the exact characters in a clue kind "pillar identifier".
 Read separate storefront signs as separate searchableNames; never merge neighboring signs into one name. Include road-label text, banks, testing centres, schools and phone-number-bearing businesses when legible.
 For a local restaurant, hotel, shop or landmark, inspect the fascia, awning and roadside board separately before deciding the name is unreadable. If you can make out only part of a name, return that fragment as a clue but do not put it in searchableNames.
+For rural or natural scenes with no useful text, spend most of the analysis on ecological and geographic signals. Distinguish native range from common cultivation. Generic blue sky, grass, or common trees are weak evidence. Mountain geology, terracing, utility poles, lane markings, drainage, guardrails and crop geometry can strengthen or contradict a regional hypothesis.
 """
 
 
@@ -110,6 +113,31 @@ def _merge_responses(responses: list[dict]) -> dict:
     first["landmarkHypotheses"] = sorted(
         hypotheses.values(), key=lambda row: -float(row.get("confidence") or 0)
     )[:5]
+    regional: dict[str, dict] = {}
+    regional_support: dict[str, int] = {}
+    for response in responses:
+        seen_in_response: set[str] = set()
+        for row in response.get("regionalHypotheses") or []:
+            key = re.sub(r"\W+", "", f"{row.get('region') or ''}{row.get('country') or ''}".lower())
+            if not key:
+                continue
+            if key not in seen_in_response:
+                regional_support[key] = regional_support.get(key, 0) + 1
+                seen_in_response.add(key)
+            current = regional.get(key)
+            if current is None or float(row.get("confidence") or 0) > float(current.get("confidence") or 0):
+                regional[key] = dict(row)
+    for key, row in regional.items():
+        support = regional_support.get(key, 1)
+        row["supportCount"] = support
+        if support > 1:
+            row["confidence"] = min(0.78, float(row.get("confidence") or 0) + 0.08)
+    first["regionalHypotheses"] = sorted(
+        regional.values(), key=lambda row: -float(row.get("confidence") or 0)
+    )[:5]
+    profiles = [response.get("environmentProfile") for response in responses if response.get("environmentProfile")]
+    if profiles:
+        first["environmentProfile"] = profiles[0]
     first["model"] = "+".join(str(response.get("model") or "") for response in responses)
     first["explanation"] = " ".join(
         str(response.get("explanation") or "").strip() for response in responses if response.get("explanation")
@@ -177,9 +205,36 @@ async def ask_gemini(images: bytes | list[tuple[str, bytes]], ocr_text: str) -> 
                     "required": ["name", "region", "confidence", "reasons"],
                 },
             },
+            "environmentProfile": {
+                "type": "OBJECT",
+                "properties": {
+                    "biome": {"type": "STRING"},
+                    "climate": {"type": "STRING"},
+                    "terrain": {"type": "STRING"},
+                    "vegetation": {"type": "STRING"},
+                    "agriculture": {"type": "STRING"},
+                    "soil": {"type": "STRING"},
+                    "roadDesign": {"type": "STRING"},
+                    "mountainForm": {"type": "STRING"}
+                }
+            },
+            "regionalHypotheses": {
+                "type": "ARRAY",
+                "items": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "country": {"type": "STRING"},
+                        "region": {"type": "STRING"},
+                        "confidence": {"type": "NUMBER"},
+                        "reasons": {"type": "ARRAY", "items": {"type": "STRING"}},
+                        "counterEvidence": {"type": "ARRAY", "items": {"type": "STRING"}}
+                    },
+                    "required": ["country", "region", "confidence", "reasons", "counterEvidence"]
+                }
+            },
             "explanation": {"type": "STRING"},
         },
-        "required": ["imageType", "regionHints", "clues", "searchableNames", "textReads", "searchQueries", "landmarkHypotheses", "explanation"],
+        "required": ["imageType", "regionHints", "clues", "searchableNames", "textReads", "searchQueries", "landmarkHypotheses", "environmentProfile", "regionalHypotheses", "explanation"],
     }
     body = {
         "contents": [
@@ -261,6 +316,12 @@ async def ask_gemini(images: bytes | list[tuple[str, bytes]], ocr_text: str) -> 
                 and 4 <= len(str(row.get("name") or "").strip()) <= 100
                 and 0.0 <= float(row.get("confidence") or 0.0) <= 1.0
             ][:3]
+            obj["regionalHypotheses"] = [
+                row for row in (obj.get("regionalHypotheses") or [])
+                if isinstance(row, dict)
+                and (str(row.get("country") or "").strip() or str(row.get("region") or "").strip())
+                and 0.0 <= float(row.get("confidence") or 0.0) <= 0.78
+            ][:5]
             obj["ok"] = True
             obj["model"] = model
             successful.append(obj)

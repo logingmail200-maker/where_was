@@ -37,9 +37,7 @@
         <div class="story-chrome"><span><img src="/assets/wherewas-logo.svg?v=2" alt=""> WHEREWAS / STREET SEARCH</span><b><i></i> LIVE SEQUENCE</b></div>
         <div class="story-scene">
           <div id="story-live-map" class="story-live-map" aria-hidden="true"></div>
-          <video class="story-result-video" muted loop playsinline preload="none" aria-label="Animated Downtown Dubai road scene">
-            <source src="/assets/dubai-road-motion-enhanced.mp4" type="video/mp4">
-          </video>
+          <iframe class="story-street-view" title="Interactive 360 degree Street View of Downtown Dubai" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade" data-src="https://maps.google.com/maps?q=25.1924,55.2722&amp;layer=c&amp;cbll=25.1924,55.2722&amp;cbp=11,120,0,0,0&amp;output=svembed"></iframe>
           <div class="pixel-matrix" aria-hidden="true"></div>
           <svg class="road-trace" viewBox="0 0 1200 700" preserveAspectRatio="none" aria-hidden="true">
             <path class="road-trace-glow" pathLength="1" d="M354 535 C445 502 515 455 571 412 C629 367 707 332 846 286"/>
@@ -88,7 +86,7 @@
           <li data-step="1"><small>02 / VISUAL SIGNALS</small><h2>The scene begins to describe itself.</h2><p>Emaar, Downtown, Burj Khalifa, the boulevard and Dubai Trolley converge.</p></li>
           <li data-step="2"><small>03 / IMAGE TRANSFER</small><h2>Every pixel enters the geographic search.</h2><p>The full frame becomes a visual signal stream while the world rotates toward the UAE.</p></li>
           <li data-step="3"><small>04 / UAE LOCK</small><h2>The globe settles over the Emirates.</h2><p>The image transfer completes as the strongest regional match moves into view.</p></li>
-          <li data-step="7"><small>05 / RESOLVED</small><h2>From one image to the right street.</h2><p>Sheikh Mohammed bin Rashid Boulevard, Downtown Dubai.</p></li>
+          <li data-step="7"><small>05 / RESOLVED</small><h2>From one image to the right street.</h2><p>Drag the Street View to look around in 360°, or continue scrolling.</p></li>
         </ol>
         <p class="story-note">Illustrative search sequence · candidate ranking shown for product demonstration</p>
       </div>
@@ -140,6 +138,6 @@
   </footer>
 
   <script src="/maplibre-gl.js"></script>
-  <script src="/marketing.js?v=22"></script>
+  <script src="/marketing.js?v=23"></script>
 </body>
 </html>

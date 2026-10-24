@@ -75,6 +75,7 @@ async def search_places(queries: list[str], region_hint: str | None = None, max_
                             "osm_id": hit.get("osm_id"),
                             "category": f"{hit.get('category') or ''}:{hit.get('type') or ''}",
                             "importance": hit.get("importance") or 0,
+                              "boundingbox": hit.get("boundingbox") or [],
                         }
                     )
             except Exception:

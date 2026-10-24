@@ -15,12 +15,15 @@ const heroPixels = document.querySelector("#hero-pixels");
 const liveMapElement = document.querySelector("#story-live-map");
 const sourcePixelCanvas = document.querySelector("#source-pixels");
 const sourceImage = document.querySelector(".source-frame > img");
-const storyResultVideo = document.querySelector(".story-result-video");
+const storyStreetView = document.querySelector(".story-street-view");
 let liveStoryMap = null;
 let heroParticlePoints = [];
 let sourceParticlePoints = [];
 let lastStoryProgress = 0;
-let lastVideoScene = -1;
+let storyAutoStarted = false;
+let storyAutoScene = 0;
+let storyAutoProgress = 0;
+let storyAutoFrame = 0;
 
 const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, value));
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -456,6 +459,53 @@ function animateStoryGlobe(time) {
   requestAnimationFrame(animateStoryGlobe);
 }
 
+function applyStoryState(progress, scene) {
+  if (!story) return;
+  lastStoryProgress = progress;
+  const intro = easeInOut(progress / 0.14);
+  const sourceCollapse = easeInOut((progress - 0.27) / 0.07);
+  const globeReveal = easeInOut((progress - 0.34) / 0.045);
+  const roadReveal = easeInOut((progress - 0.69) / 0.07);
+  story.dataset.scene = String(scene);
+  story.style.setProperty("--story-p", progress.toFixed(4));
+  story.style.setProperty("--intro-scale", (0.4 + intro * 0.6).toFixed(4));
+  story.style.setProperty("--source-opacity", (1 - sourceCollapse).toFixed(4));
+  story.style.setProperty("--source-shrink", (1 - sourceCollapse * 0.86).toFixed(4));
+  story.style.setProperty("--globe-opacity", (globeReveal * 0.96).toFixed(4));
+  story.style.setProperty("--road-reveal", roadReveal.toFixed(4));
+  const introStart = innerWidth < 760 ? 86 : 73;
+  story.style.setProperty("--intro-top", `${introStart - intro * (introStart - 48)}%`);
+  root.style.setProperty("--story-intro", intro.toFixed(4));
+  root.style.setProperty("--title-dissolve", "0");
+  storySteps.forEach((step) => step.classList.toggle("active", Number(step.dataset.step) === scene));
+  if (targetLabel && targetValue) {
+    targetLabel.textContent = scene === 2 ? "Searching" : "Street targeting";
+    targetValue.textContent = scene === 2 ? "Global index" : "Downtown Dubai";
+  }
+  if (scene === 7 && storyStreetView && !storyStreetView.getAttribute("src")) {
+    storyStreetView.src = storyStreetView.dataset.src;
+  }
+  drawStoryMap(progress);
+  if (innerWidth >= 760) drawSourcePixelFlow(progress);
+  updateLiveStoryMap(progress);
+}
+
+function beginAutomaticStory() {
+  if (storyAutoStarted || reducedMotion) return;
+  storyAutoStarted = true;
+  const started = performance.now();
+  const duration = 5700;
+  const animate = (now) => {
+    const elapsed = now - started;
+    const phase = clamp(elapsed / duration);
+    storyAutoProgress = 0.27 + easeInOut(phase) * 0.57;
+    storyAutoScene = elapsed < 450 ? 1 : elapsed < 2850 ? 2 : elapsed < 5100 ? 3 : 7;
+    applyStoryState(storyAutoProgress, storyAutoScene);
+    if (phase < 1) storyAutoFrame = requestAnimationFrame(animate);
+  };
+  storyAutoFrame = requestAnimationFrame(animate);
+}
+
 function updateScrollScene() {
   const y = window.scrollY;
   if (header) {
@@ -476,42 +526,12 @@ function updateScrollScene() {
     const rect = story.getBoundingClientRect();
     const travel = Math.max(1, story.offsetHeight - innerHeight);
     const progress = clamp(-rect.top / travel);
-    lastStoryProgress = progress;
-    const intro = easeInOut(progress / 0.14);
-    const sourceCollapse = easeInOut((progress - 0.27) / 0.07);
-    const globeReveal = easeInOut((progress - 0.34) / 0.045);
-    const roadReveal = easeInOut((progress - 0.69) / 0.07);
-    const dissolve = 0;
     let scene = 0;
     if (progress >= 0.14) scene = 1;
-    if (progress >= 0.27) scene = 2;
-    if (progress >= 0.52) scene = 3;
-    if (progress >= 0.84) scene = 7;
     if (reducedMotion) scene = 7;
-    story.dataset.scene = String(scene);
-    if (storyResultVideo && scene !== lastVideoScene) {
-      lastVideoScene = scene;
-      if (scene === 7) storyResultVideo.play().catch(() => {});
-      else storyResultVideo.pause();
-    }
-    story.style.setProperty("--story-p", progress.toFixed(4));
-    story.style.setProperty("--intro-scale", (0.4 + intro * 0.6).toFixed(4));
-    story.style.setProperty("--source-opacity", (1 - sourceCollapse).toFixed(4));
-    story.style.setProperty("--source-shrink", (1 - sourceCollapse * 0.86).toFixed(4));
-    story.style.setProperty("--globe-opacity", (globeReveal * 0.96).toFixed(4));
-    story.style.setProperty("--road-reveal", roadReveal.toFixed(4));
-    const introStart = innerWidth < 760 ? 86 : 73;
-    story.style.setProperty("--intro-top", `${introStart - intro * (introStart - 48)}%`);
-    root.style.setProperty("--story-intro", intro.toFixed(4));
-    root.style.setProperty("--title-dissolve", "0");
-    storySteps.forEach((step) => step.classList.toggle("active", Number(step.dataset.step) === scene));
-    if (targetLabel && targetValue) {
-      targetLabel.textContent = scene === 2 ? "Searching" : "Street targeting";
-      targetValue.textContent = scene === 2 ? "Global index" : "Downtown Dubai";
-    }
-    drawStoryMap(progress);
-    drawSourcePixelFlow(progress);
-    updateLiveStoryMap(progress);
+    if (!storyAutoStarted) applyStoryState(progress, scene);
+    if (progress >= 0.18 && !storyAutoStarted && !reducedMotion) beginAutomaticStory();
+    if (reducedMotion) applyStoryState(0.84, 7);
   }
   ticking = false;
 }

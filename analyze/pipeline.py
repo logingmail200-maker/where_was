@@ -208,6 +208,7 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
             pairs=pairs,
             elevated=elevated,
             infra_words=infra,
+            regional_hypotheses=mind.get("regional_hypotheses") or [],
         )
         # Query free, crowdsourced street-imagery only after the candidate
         # shortlist exists. This avoids a costly/unbounded worldwide scan.
@@ -261,6 +262,12 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
                 "hit" if visual.get("ok") else ("fail" if visual.get("error") else "empty"),
                 (visual.get("explanation") or visual.get("error") or "off")[:120],
             ),
+            aspect(
+                "environment",
+                "Environmental profile",
+                "hit" if visual.get("environmentProfile") else "empty",
+                " · ".join(str(value) for value in (visual.get("environmentProfile") or {}).values() if value)[:160] or "None",
+            ),
             aspect("rev", "Reverse search", "hit" if rev.get("pages") else ("fail" if rev.get("errors") else "empty"), f"{len(rev.get('pages') or [])} pages · engines: {', '.join(rev.get('engines') or []) or 'none'}"),
             aspect("think", "Linked reasoning", "hit" if mind.get("thoughts") else "empty", (mind.get("thoughts") or [""])[0][:160]),
             aspect("city", "Locked city", "hit" if mind.get("city") else "empty", mind.get("city") or "None"),
@@ -306,6 +313,8 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
                 "textReads": visual.get("textReads") or [],
                 "searchQueries": visual.get("searchQueries") or [],
                 "landmarkHypotheses": visual.get("landmarkHypotheses") or [],
+                "environmentProfile": visual.get("environmentProfile") or {},
+                "regionalHypotheses": visual.get("regionalHypotheses") or [],
                 "clues": visual.get("clues") or [],
                 "explanation": visual.get("explanation"),
                 "error": visual.get("error"),

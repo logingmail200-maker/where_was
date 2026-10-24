@@ -62,6 +62,7 @@ def rank(
     pairs: list[dict] | None = None,
     elevated: list[dict] | None = None,
     infra_words: list[str] | None = None,
+    regional_hypotheses: list[dict] | None = None,
 ) -> dict:
     candidates: list[dict] = []
     clues: list[dict] = []
@@ -161,6 +162,10 @@ def rank(
             )
             continue
         q = (h.get("query") or h.get("name") or "").lower()
+        regional_match = next((
+            row for row in (regional_hypotheses or [])
+            if q == " ".join(filter(None, [str(row.get("region") or "").strip(), str(row.get("country") or "").strip()])).lower()
+        ), None)
         generic_q = q in {
             "karnataka", "bengaluru", "bangalore", "india", "tamil nadu", "maharashtra",
             "delhi", "mumbai", "chennai", "kerala",
@@ -169,6 +174,8 @@ def rank(
         name_hit = any(n.lower() in name_l or n.lower() in (h.get("address") or "").lower() for n in names[:8])
         exact = any(n.lower() == name_l or n.lower() in name_l for n in names[:8] if len(n) >= 6)
         score = 48 + min(12, int((h.get("importance") or 0) * 40))
+        if regional_match:
+            score = round(38 + float(regional_match.get("confidence") or 0) * 45)
         if h.get("source") == "nominatim":
             score += 6
         if h.get("source") == "google-maps":
@@ -236,7 +243,23 @@ def rank(
             why.append(f"Second name “{other.get('name')}” is {partner['meters']} m away — two clues, not a chain guess.")
         if near_el:
             why.append(f"Mapped {near_el.get('name')} within 350 m matches infra in the photo ({', '.join(infra_words or [])}).")
-        if exact and (partner or nearby_queries or len(matched_queries) >= 2) and (near_el or not infra_words) and not is_chain:
+        if regional_match:
+            tier = "region"
+            bbox_values = h.get("boundingbox") or []
+            radius = 150000
+            try:
+                south, north, west, east = (float(value) for value in bbox_values[:4])
+                radius = int(max(25000, min(900000, haversine_m(((south + north) / 2, west), ((south + north) / 2, east)) / 2)))
+            except (TypeError, ValueError):
+                pass
+            why = [
+                "Broad environmental candidate; this is not a street-level match.",
+                *[str(reason) for reason in (regional_match.get("reasons") or [])[:4]],
+            ]
+            counter = [str(reason) for reason in (regional_match.get("counterEvidence") or [])[:3]]
+            if counter:
+                why.append("Uncertainty: " + "; ".join(counter))
+        elif exact and (partner or nearby_queries or len(matched_queries) >= 2) and (near_el or not infra_words) and not is_chain:
             tier, radius = "pin", 120
             why.append("Unique name plus an independently mapped nearby name.")
         elif exact:
@@ -303,7 +326,7 @@ def rank(
 
     # A low-scoring branch suggestion is not a resolved location. This prevents
     # a chain name alone from becoming a confident-looking pin.
-    primary = kept[0] if kept and kept[0]["score"] >= 65 and kept[0].get("tier") != "city" else None
+    primary = kept[0] if kept and kept[0]["score"] >= 65 and kept[0].get("tier") not in {"city", "region"} else None
     # Honest tier: many similar scores → don't pretend we know
     if primary and primary["tier"] != "pin" and len(kept) >= 2:
         if kept[0]["score"] - kept[1]["score"] < 8:
@@ -329,6 +352,8 @@ def _summary(primary, kept, plates, kind, had_reverse, region_only) -> str:
     if primary and len(kept) == 1 and primary["score"] >= 70:
         return "One place candidate stood out from text / reverse search / OSM. Radius is a block-scale estimate, not a survey."
     if kept:
+        if any(candidate.get("tier") == "region" for candidate in kept):
+            return f"{len(kept)} broad environmental candidates. Vegetation and terrain can narrow a region, but cannot honestly identify an exact road alone."
         return f"{len(kept)} place candidates. Open Street View on each — automatic worldwide street-view matching is not in this pass."
     if region_only:
         return f"Nothing unique enough to pin. Best region signal: {region_only}."
