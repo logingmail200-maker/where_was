@@ -119,8 +119,12 @@ def compose(ocr: dict, visual: dict, exif: dict, kind: dict, rev: dict) -> dict:
         row for row in (visual.get("landmarkHypotheses") or [])
         if float(row.get("confidence") or 0.0) >= 0.45 and row.get("name")
     ]
+    strong_hypotheses = [row for row in hypotheses if float(row.get("confidence") or 0.0) >= 0.75]
+    search_names = list(dict.fromkeys(search_names + [
+        str(row.get("name") or "").strip() for row in strong_hypotheses if row.get("name")
+    ]))
     hypothesis_queries = [
-        " ".join(filter(None, [str(row.get("name") or "").strip(), str(row.get("region") or "").strip()]))
+        re.sub(r"[^\w\s'-]", " ", str(row.get("name") or "")).strip()
         for row in hypotheses
     ]
     model_queries = list(dict.fromkeys(
@@ -152,6 +156,9 @@ def compose(ocr: dict, visual: dict, exif: dict, kind: dict, rev: dict) -> dict:
     elif distinctive:
         plan = "names"
         thoughts.append("No brand∩city lock — search distinctive names only.")
+    elif strong_hypotheses:
+        plan = "landmark"
+        thoughts.append("A distinctive landmark hypothesis is supported by multiple structural details; map the named landmark, then use Street View for confirmation.")
     else:
         plan = "regional" if regional_queries else "weak"
         if regional_queries:
@@ -220,6 +227,12 @@ async def hunt(mind: dict, gps) -> dict:
         )
     elif mind.get("plan") == "brands" and mind.get("brands"):
         nominatim = await search_places([b["label"] for b in mind["brands"][:2]], None, max_queries=2)
+    elif mind.get("plan") == "landmark" and mind.get("landmark_hypotheses"):
+        landmark_names = [
+            re.sub(r"[^\w\s'-]", " ", re.sub(r"\s*\([^)]*\)\s*", " ", str(row.get("name") or ""))).strip()
+            for row in mind["landmark_hypotheses"][:3]
+        ]
+        nominatim = await search_places(landmark_names, None, max_queries=3)
     elif mind.get("model_queries"):
         nominatim = await search_places((mind.get("model_queries") or [])[:4], mind.get("city"), max_queries=4)
     elif mind.get("plan") == "regional" and mind.get("regional_queries"):
