@@ -10,7 +10,10 @@ import httpx
 
 MODELS = tuple(
     x.strip()
-    for x in os.environ.get("GEMINI_MODELS", "gemini-3-flash-preview,gemini-3.1-flash-lite,gemini-3.6-flash").split(",")
+    for x in os.environ.get(
+        "GEMINI_MODELS",
+        "gemini-3.8-flash,gemini-3.5-flash-lite,gemini-3.6-flash,gemini-2.5-flash-lite,gemini-3-flash-preview",
+    ).split(",")
     if x.strip()
 )
 
@@ -284,7 +287,7 @@ async def ask_gemini(images: bytes | list[tuple[str, bytes]], ocr_text: str) -> 
                 continue
             if r.status_code >= 400:
                 last_err = f"{model} HTTP {r.status_code}: {r.text[:180]}"
-                if r.status_code == 403:
+                if r.status_code == 401:
                     return {"ok": False, "error": last_err}
                 if r.status_code == 429:
                     await asyncio.sleep(0.8)
