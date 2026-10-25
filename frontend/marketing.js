@@ -499,7 +499,8 @@ function applyStoryState(progress, scene) {
   story.style.setProperty("--source-shrink", (1 - sourceCollapse * 0.86).toFixed(4));
   story.style.setProperty("--globe-opacity", (globeReveal * 0.96).toFixed(4));
   story.style.setProperty("--road-reveal", roadReveal.toFixed(4));
-  const introStart = innerWidth < 760 ? 86 : 73;
+  // Keep the square source card below the intro copy before its transition begins.
+  const introStart = innerWidth < 760 ? 78 : 82;
   story.style.setProperty("--intro-top", `${introStart - intro * (introStart - 48)}%`);
   root.style.setProperty("--story-intro", intro.toFixed(4));
   root.style.setProperty("--title-dissolve", "0");

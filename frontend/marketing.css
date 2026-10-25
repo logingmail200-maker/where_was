@@ -140,3 +140,9 @@ main{position:relative}.hero{position:absolute;z-index:12;inset:0 0 auto;height:
 .geo-story[data-scene="0"] .source-frame{width:min(420px,calc(100% - 48px));height:min(420px,calc(100vw - 48px));border-radius:16px}
 .geo-story[data-scene="1"] .source-frame,.geo-story[data-scene="2"] .source-frame{width:min(480px,calc(100% - 48px));height:min(480px,calc(100vw - 48px));border-radius:16px}
 @media(max-width:760px){.geo-pin:after{inset:-18% -45% 36%;filter:blur(72px) saturate(1.35) brightness(.44);opacity:.2}.geo-story[data-scene="0"] .source-frame{width:min(300px,calc(100% - 32px));height:min(300px,calc(100vw - 32px))}.geo-story[data-scene="1"] .source-frame,.geo-story[data-scene="2"] .source-frame{width:min(340px,calc(100% - 28px));height:min(340px,calc(100vw - 28px))}}
+
+/* A short sticky timeline: the final Street View hands back to page content in one scroll. */
+.geo-story{height:175vh}
+.geo-story[data-scene="0"] .source-frame{width:min(360px,calc(100% - 48px));height:min(360px,calc(100vw - 48px))}
+.geo-story[data-scene="1"] .source-frame,.geo-story[data-scene="2"] .source-frame{width:min(420px,calc(100% - 48px));height:min(420px,calc(100vw - 48px))}
+@media(max-width:760px){.geo-story{height:180vh}.geo-story[data-scene="0"] .source-frame{width:min(270px,calc(100% - 32px));height:min(270px,calc(100vw - 32px))}.geo-story[data-scene="1"] .source-frame,.geo-story[data-scene="2"] .source-frame{width:min(310px,calc(100% - 28px));height:min(310px,calc(100vw - 28px))}}
