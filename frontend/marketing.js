@@ -16,6 +16,8 @@ const liveMapElement = document.querySelector("#story-live-map");
 const sourcePixelCanvas = document.querySelector("#source-pixels");
 const sourceImage = document.querySelector(".source-frame > img");
 const storyStreetView = document.querySelector(".story-street-view");
+const streetViewControl = document.querySelector(".street-view-control");
+const streetViewButton = streetViewControl?.querySelector("button");
 let liveStoryMap = null;
 let heroParticlePoints = [];
 let sourceParticlePoints = [];
@@ -24,10 +26,31 @@ let storyAutoStarted = false;
 let storyAutoScene = 0;
 let storyAutoProgress = 0;
 let storyAutoFrame = 0;
+let streetViewTimer = 0;
 
 const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, value));
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 let ticking = false;
+
+function setStreetViewInteractive(enabled) {
+  if (!storyStreetView || !streetViewButton || !streetViewControl) return;
+  clearTimeout(streetViewTimer);
+  storyStreetView.classList.toggle("is-interactive", enabled);
+  streetViewControl.classList.toggle("is-active", enabled);
+  streetViewButton.setAttribute("aria-pressed", String(enabled));
+  streetViewButton.textContent = enabled ? "Return to page scroll" : "Explore 360°";
+  if (enabled && matchMedia("(pointer: coarse)").matches) {
+    streetViewTimer = window.setTimeout(() => setStreetViewInteractive(false), 7000);
+  }
+}
+
+streetViewButton?.addEventListener("click", () => {
+  setStreetViewInteractive(!storyStreetView?.classList.contains("is-interactive"));
+});
+storyStreetView?.addEventListener("mouseleave", () => setStreetViewInteractive(false));
+addEventListener("keydown", (event) => {
+  if (event.key === "Escape") setStreetViewInteractive(false);
+});
 
 function easeInOut(value) {
   const t = clamp(value);
@@ -461,6 +484,9 @@ function animateStoryGlobe(time) {
 
 function applyStoryState(progress, scene) {
   if (!story) return;
+  if (scene !== 7 && storyStreetView?.classList.contains("is-interactive")) {
+    setStreetViewInteractive(false);
+  }
   lastStoryProgress = progress;
   const intro = easeInOut(progress / 0.14);
   const sourceCollapse = easeInOut((progress - 0.27) / 0.07);

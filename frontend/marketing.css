@@ -115,6 +115,12 @@ main{position:relative}.hero{position:absolute;z-index:12;inset:0 0 auto;height:
 .story-result-video{display:none!important}
 .story-street-view{position:absolute;z-index:2;inset:0;width:100%;height:100%;border:0;opacity:0;transform:scale(1.025);filter:grayscale(.3) brightness(.62) contrast(1.08);transition:opacity .9s var(--ease),transform 1.2s var(--ease),filter 1s;pointer-events:none}
 .geo-story[data-scene="7"] .story-live-map{opacity:0!important;transform:scale(1.08)!important}
-.geo-story[data-scene="7"] .story-street-view{z-index:5;opacity:1;transform:scale(1);filter:grayscale(.08) brightness(.78) contrast(1.04);pointer-events:auto}
+.geo-story[data-scene="7"] .story-street-view{z-index:5;opacity:1;transform:scale(1);filter:grayscale(.08) brightness(.78) contrast(1.04)}
+.geo-story[data-scene="7"] .story-street-view.is-interactive{pointer-events:auto}
+.street-view-control{position:absolute;z-index:24;left:50%;bottom:28px;opacity:0;pointer-events:none;transform:translate(-50%,12px);transition:opacity .3s var(--ease),transform .3s var(--ease)}
+.street-view-control button{min-height:38px;padding:0 16px;border:1px solid #ffffff52;border-radius:999px;background:#0a0c0ee0;color:#f5f6f2;box-shadow:0 12px 34px #0008;backdrop-filter:blur(12px);font:600 11px Inter,sans-serif;cursor:pointer}
+.street-view-control button:hover{background:#f5f6f2;color:#090a0b}
+.geo-story[data-scene="7"] .street-view-control{opacity:1;pointer-events:auto;transform:translate(-50%,0)}
+.geo-story[data-scene="7"] .street-view-control.is-active button{background:#f5f6f2;color:#090a0b}
 .geo-story[data-scene="7"] .story-scene:before{display:none}
-@media(max-width:760px){.geo-story{height:250vh}.source-pixels{display:none!important}.story-street-view{filter:grayscale(.15) brightness(.7) contrast(1.05)}.geo-story[data-scene="7"] .final-place{right:12px;top:24%;width:calc(100% - 24px);padding:16px;pointer-events:none}.geo-story[data-scene="7"] .story-steps{pointer-events:none}.geo-story[data-scene="7"] .story-note{display:none}}
+@media(max-width:760px){.geo-story{height:250vh}.source-pixels{display:none!important}.story-street-view{filter:grayscale(.15) brightness(.7) contrast(1.05)}.street-view-control{bottom:18px}.street-view-control button{min-height:42px;padding:0 18px}.geo-story[data-scene="7"] .final-place{right:12px;top:24%;width:calc(100% - 24px);padding:16px;pointer-events:none}.geo-story[data-scene="7"] .story-steps{pointer-events:none}.geo-story[data-scene="7"] .story-note{display:none}}

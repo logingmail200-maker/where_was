@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/maplibre-gl.css">
-  <link rel="stylesheet" href="/marketing.css?v=22">
+  <link rel="stylesheet" href="/marketing.css?v=23">
 </head>
 <body>
   <div class="noise" aria-hidden="true"></div>
@@ -38,6 +38,9 @@
         <div class="story-scene">
           <div id="story-live-map" class="story-live-map" aria-hidden="true"></div>
           <iframe class="story-street-view" title="Interactive 360 degree Street View of Sheikh Mohammed bin Rashid Boulevard, Dubai" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade" data-src="https://maps.google.com/maps?q=25.1912354,55.276428&amp;layer=c&amp;cbll=25.1912354,55.276428&amp;cbp=11,288.53,0,0,0&amp;output=svembed"></iframe>
+          <div class="street-view-control">
+            <button type="button" aria-pressed="false">Explore 360°</button>
+          </div>
           <div class="pixel-matrix" aria-hidden="true"></div>
           <svg class="road-trace" viewBox="0 0 1200 700" preserveAspectRatio="none" aria-hidden="true">
             <path class="road-trace-glow" pathLength="1" d="M354 535 C445 502 515 455 571 412 C629 367 707 332 846 286"/>
@@ -86,7 +89,7 @@
           <li data-step="1"><small>02 / VISUAL SIGNALS</small><h2>The scene begins to describe itself.</h2><p>Emaar, Downtown, Burj Khalifa, the boulevard and Dubai Trolley converge.</p></li>
           <li data-step="2"><small>03 / IMAGE TRANSFER</small><h2>Every pixel enters the geographic search.</h2><p>The full frame becomes a visual signal stream while the world rotates toward the UAE.</p></li>
           <li data-step="3"><small>04 / UAE LOCK</small><h2>The globe settles over the Emirates.</h2><p>The image transfer completes as the strongest regional match moves into view.</p></li>
-          <li data-step="7"><small>05 / RESOLVED</small><h2>From one image to the right street.</h2><p>Drag the Street View to look around in 360°, or continue scrolling.</p></li>
+          <li data-step="7"><small>05 / RESOLVED</small><h2>From one image to the right street.</h2><p>Explore the panorama when needed; page scrolling stays uninterrupted.</p></li>
         </ol>
         <p class="story-note">Illustrative search sequence · candidate ranking shown for product demonstration</p>
       </div>
