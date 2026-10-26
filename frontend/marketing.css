@@ -160,3 +160,44 @@ main{position:relative}.hero{position:absolute;z-index:12;inset:0 0 auto;height:
 
 html[data-theme="light"]{color-scheme:light;--bg:#eff0eb;--surface:#ffffff;--surface2:#e5e6e1;--text:#111412;--soft:rgba(17,20,18,.7);--muted:rgba(17,20,18,.48);--line:rgba(12,16,13,.12);--line2:rgba(12,16,13,.24)}
 html[data-theme="light"] body,html[data-theme="light"] .geo-story{background:#eff0eb}html[data-theme="light"] .noise{opacity:.055}html[data-theme="light"] .nav-wrap{background:rgba(250,251,247,.82);box-shadow:0 18px 60px #34382d24,inset 0 1px #fff;color:#121512}html[data-theme="light"] .site-header nav a,html[data-theme="light"] .nav-live{color:#4b514b}html[data-theme="light"] .theme-toggle{border-color:#12151228;color:#111412}html[data-theme="light"] .nav-cta{background:#161916;color:#fff}html[data-theme="light"] .geo-pin{background:radial-gradient(circle at 50% 40%,#d9ddd4 0,#eef0eb 48%,#e4e6e0 100%)}html[data-theme="light"] .hero h1,html[data-theme="light"] .hero-sub,html[data-theme="light"] .eyebrow{color:#141714}html[data-theme="light"] .hero-sub{color:#505751}html[data-theme="light"] .story-steps h2{color:#141714;text-shadow:none}html[data-theme="light"] .story-steps p{color:#394039;text-shadow:none}html[data-theme="light"] .story-scene:after{background:linear-gradient(transparent,#eff0eb 74%)}
+
+/* Final opening composition: landscape, slightly wider, and visibly closer to the hero copy. */
+.geo-story[data-scene="0"] .source-frame{width:min(500px,calc(100% - 48px));height:min(315px,31vw);aspect-ratio:1.58/1;border-radius:15px}
+.geo-story[data-scene="1"] .source-frame,.geo-story[data-scene="2"] .source-frame{width:min(610px,calc(100% - 48px));height:min(385px,38vw);aspect-ratio:1.58/1;border-radius:15px}
+.geo-story[data-scene="1"] .source-frame{--source-opacity:1;--source-shrink:1}
+@media(max-width:760px){.geo-story[data-scene="0"] .source-frame{width:min(330px,calc(100% - 32px));height:min(208px,57vw)}.geo-story[data-scene="1"] .source-frame,.geo-story[data-scene="2"] .source-frame{width:min(365px,calc(100% - 28px));height:min(230px,62vw)}}
+
+/* One deliberate scan: the intact frame pauses, the grid sweeps once, then vanishes. */
+.geo-story[data-scene="1"] .source-frame{opacity:1!important;visibility:visible!important;filter:saturate(.72) contrast(1.12) brightness(.72)!important}
+.geo-story[data-scene="1"] .scan-grid:after{animation:storyScan 1.35s cubic-bezier(.22,.65,.3,1) 1 both}
+.geo-story:not([data-scene="1"]) .scan-grid:after{animation:none}
+
+/* Licensed street-level examples: useful clues, not famous landmark answers. */
+.story-a{background-image:linear-gradient(#0001,#0006),url('/assets/bengaluru-mapillary-neighborhood.jpg')}
+.story-b{background-image:linear-gradient(#0001,#0006),url('/assets/bengaluru-mapillary-street.jpg')}
+.story-c{background-image:linear-gradient(#0001,#0006),url('/assets/bengaluru-mapillary-neighborhood.jpg');background-position:70% center}
+.case-image{background-image:url('/assets/bengaluru-mapillary-street.jpg');filter:grayscale(.38) contrast(1.08)}
+.story-image em{position:absolute;left:12px;bottom:11px;color:#ffffffa8;font:500 7px var(--ui);font-style:normal;letter-spacing:.06em;text-transform:uppercase;text-shadow:0 1px 8px #000}
+
+/* The theme control changes the complete page, not just the header. */
+html[data-theme="light"] .brand-logo{filter:invert(1)}
+html[data-theme="light"] .enterprise,html[data-theme="light"] .intelligence,html[data-theme="light"] .stories,html[data-theme="light"] footer{color:#111412}
+html[data-theme="light"] .feature-card,html[data-theme="light"] .story-card{background:#fafbf7;border-color:#1519151c;box-shadow:0 18px 55px #34382d0b}
+html[data-theme="light"] .feature-tabs button{background:#f8f9f5;color:#555d56;border-color:#1519151f}
+html[data-theme="light"] .feature-tabs button.active{background:#171a17;color:#fff;border-color:#171a17}
+html[data-theme="light"] .feature-copy a,html[data-theme="light"] .story-card a{color:#151815}
+html[data-theme="light"] .feature-metrics span{border-color:#15191520;color:#59605a}
+html[data-theme="light"] .final-cta{background:radial-gradient(circle at 75% 20%,#d9ddd5,#f7f8f4 48%,#fff);border-color:#1519151b;color:#111412;box-shadow:0 24px 70px #34382d0d}
+html[data-theme="light"] .primary-btn{background:#171a17;color:#fff}
+html[data-theme="light"] footer{border-color:#1519151c}
+html[data-theme="light"] .newsletter input{background:#fff;color:#111412;border-color:#15191524}
+html[data-theme="light"] .newsletter button{background:#171a17;color:#fff}
+html[data-theme="light"] .footer-bottom{border-color:#1519151c}
+html[data-theme="light"] .editorial,html[data-theme="light"] .case-card{color:#fff}
+html[data-theme="light"] .case-state{color:#d9ddd8;border-color:#ffffff2c}
+html[data-theme="light"] .story-chrome{background:#f8f9f5d9;color:#15181599;border-color:#1519151c}
+html[data-theme="light"] .story-chrome img{filter:invert(1)}
+
+/* Once resolved, keep one viewport of Street View and immediately hand scrolling back. */
+.geo-story[data-scene="7"]{height:112vh}
+@media(max-width:760px){.geo-story[data-scene="7"]{height:108vh}}

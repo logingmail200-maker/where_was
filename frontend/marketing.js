@@ -520,8 +520,8 @@ function applyStoryState(progress, scene) {
   story.style.setProperty("--source-shrink", (1 - sourceCollapse * 0.86).toFixed(4));
   story.style.setProperty("--globe-opacity", (globeReveal * 0.96).toFixed(4));
   story.style.setProperty("--road-reveal", roadReveal.toFixed(4));
-  // Keep the square source card below the intro copy before its transition begins.
-  const introStart = innerWidth < 760 ? 75 : 79;
+  // Keep the source photograph close to the copy, then lift it into the scan stage.
+  const introStart = innerWidth < 760 ? 71 : 74;
   story.style.setProperty("--intro-top", `${introStart - intro * (introStart - 48)}%`);
   root.style.setProperty("--story-intro", intro.toFixed(4));
   root.style.setProperty("--title-dissolve", "0");
@@ -542,14 +542,23 @@ function beginAutomaticStory() {
   if (storyAutoStarted || reducedMotion) return;
   storyAutoStarted = true;
   const started = performance.now();
-  const duration = 7200;
+  const scanHold = 1450;
+  const transitionDuration = 5750;
+  const duration = scanHold + transitionDuration;
   const animate = (now) => {
     const elapsed = now - started;
-    const phase = clamp(elapsed / duration);
-    storyAutoProgress = 0.27 + easeInOut(phase) * 0.57;
-    storyAutoScene = elapsed < 450 ? 1 : elapsed < 3800 ? 2 : elapsed < 6500 ? 3 : 7;
+    if (elapsed < scanHold) {
+      // The photo stays whole and stationary while the grid performs one scan.
+      storyAutoProgress = 0.18;
+      storyAutoScene = 1;
+    } else {
+      const transitionElapsed = elapsed - scanHold;
+      const phase = clamp(transitionElapsed / transitionDuration);
+      storyAutoProgress = 0.27 + easeInOut(phase) * 0.57;
+      storyAutoScene = transitionElapsed < 2700 ? 2 : transitionElapsed < 5000 ? 3 : 7;
+    }
     applyStoryState(storyAutoProgress, storyAutoScene);
-    if (phase < 1) storyAutoFrame = requestAnimationFrame(animate);
+    if (elapsed < duration) storyAutoFrame = requestAnimationFrame(animate);
   };
   storyAutoFrame = requestAnimationFrame(animate);
 }
