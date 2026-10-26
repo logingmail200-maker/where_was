@@ -201,3 +201,39 @@ html[data-theme="light"] .story-chrome img{filter:invert(1)}
 /* Once resolved, keep one viewport of Street View and immediately hand scrolling back. */
 .geo-story[data-scene="7"]{height:112vh}
 @media(max-width:760px){.geo-story[data-scene="7"]{height:108vh}}
+
+/* Clear, attributed street examples with an Indian case study. */
+.case-card{display:flex;flex-direction:column;background:#101214}
+.case-image{position:relative;inset:auto;width:100%;height:72%;flex:none;background:url('/assets/field-bengaluru.jpg') center/cover;filter:none}
+.case-image iframe{display:block;width:100%;height:100%;border:0;pointer-events:none}
+.case-shade{inset:auto 0 0;height:28%;background:linear-gradient(#16191b,#101214)}
+.case-copy{z-index:2;left:27px;right:27px;bottom:25px}
+.case-copy h3{font-size:clamp(20px,2vw,27px);line-height:1.2;margin:9px 0 12px}
+.story-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}
+.story-image{height:300px;filter:none;background-position:center}
+.story-a{background-image:linear-gradient(#0000 50%,#0006),url('/assets/field-bengaluru.jpg')}
+.story-b{background-image:linear-gradient(#0000 50%,#0006),url('/assets/field-mumbai.jpg')}
+.story-c{background-image:linear-gradient(#0000 50%,#0006),url('/assets/field-london.jpg')}
+.story-d{background-image:linear-gradient(#0000 50%,#0006),url('/assets/field-switzerland.jpg')}
+.story-card:last-child{grid-column:auto}
+.story-card>div:last-child{min-height:175px}
+.story-card .image-credit{position:absolute;left:12px;bottom:11px;color:#fff!important;font:500 8px var(--ui);letter-spacing:.02em;text-decoration:none;text-shadow:0 1px 8px #000,0 1px 2px #000}
+.story-card .image-credit:hover{text-decoration:underline}
+@media(max-width:760px){.story-grid{grid-template-columns:1fr}.story-image{height:250px}.case-card{height:490px}.case-image{height:68%}.case-shade{height:32%}.case-copy{left:20px;right:20px;bottom:20px}}
+
+/* The floating header and result remain legible after switching to light mode. */
+html[data-theme="light"] .site-header.scrolled .nav-wrap{background:rgba(250,251,247,.96);border-color:#15191524;color:#151915;box-shadow:0 18px 50px #20261c24,inset 0 1px #fff}
+html[data-theme="light"] .site-header.scrolled nav a{color:#343b34}
+html[data-theme="light"] .site-header.scrolled nav a:hover{color:#090c09}
+html[data-theme="light"] .site-header.scrolled .nav-cta{background:#171a17;color:#fff}
+html[data-theme="light"] .geo-story[data-scene="7"] .final-place{background:rgba(250,251,247,.95);color:#111512;border:1px solid #15191524;box-shadow:0 26px 95px #20251c45,inset 0 1px #fff}
+html[data-theme="light"] .geo-story[data-scene="7"] .final-place small{color:#48524a}
+html[data-theme="light"] .geo-story[data-scene="7"] .final-place h3{color:#111512}
+html[data-theme="light"] .geo-story[data-scene="7"] .final-place p{color:#3f4941}
+html[data-theme="light"] .geo-story[data-scene="7"] .final-place code{color:#566057}
+html[data-theme="light"] .geo-story[data-scene="7"] .final-place>b{background:#e8eee6;border-color:#9ab395;color:#263d29}
+html[data-theme="light"] .geo-story[data-scene="7"] .final-place>b i{background:#426b45;box-shadow:none}
+.street-view-control{left:auto;right:24px;bottom:25px;transform:translateY(12px)}
+.geo-story[data-scene="7"] .street-view-control{transform:none}
+@media(max-width:760px){.street-view-control{right:12px;bottom:16px}.geo-story[data-scene="7"] .final-place{max-height:28vh;overflow:auto}}
+@media(max-width:760px){.site-header .nav-wrap{display:grid;grid-template-columns:auto minmax(42px,1fr) auto;gap:5px;align-items:center}.site-header .brand{grid-column:1;grid-row:1}.site-header nav{grid-column:2;grid-row:1;justify-content:center}.site-header .nav-actions{grid-column:3;grid-row:1;gap:4px}.site-header .nav-cta{white-space:nowrap}}
