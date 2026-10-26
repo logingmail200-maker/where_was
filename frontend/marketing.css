@@ -146,3 +146,17 @@ main{position:relative}.hero{position:absolute;z-index:12;inset:0 0 auto;height:
 .geo-story[data-scene="0"] .source-frame{width:min(360px,calc(100% - 48px));height:min(360px,calc(100vw - 48px))}
 .geo-story[data-scene="1"] .source-frame,.geo-story[data-scene="2"] .source-frame{width:min(420px,calc(100% - 48px));height:min(420px,calc(100vw - 48px))}
 @media(max-width:760px){.geo-story{height:180vh}.geo-story[data-scene="0"] .source-frame{width:min(270px,calc(100% - 32px));height:min(270px,calc(100vw - 32px))}.geo-story[data-scene="1"] .source-frame,.geo-story[data-scene="2"] .source-frame{width:min(310px,calc(100% - 28px));height:min(310px,calc(100vw - 28px))}}
+
+/* Broader visual range: terrain, vegetation and dense streets—not only skylines. */
+.story-a{background-image:linear-gradient(#0001,#0005),url("https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=900&q=85")}
+.story-b{background-image:linear-gradient(#0001,#0005),url("https://images.unsplash.com/photo-1524492412937-b28074a5d7da?auto=format&fit=crop&w=900&q=85")}
+.story-c{background-image:linear-gradient(#0001,#0005),url("https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=900&q=85")}
+.case-image{background-image:url("https://images.unsplash.com/photo-1524492412937-b28074a5d7da?auto=format&fit=crop&w=1400&q=85")}
+
+.theme-toggle{width:34px;height:34px;padding:0;border:1px solid #ffffff22;border-radius:50%;display:grid;place-items:center;background:transparent;color:#f7f7f4;cursor:pointer;transition:background .25s,color .25s,transform .25s}.theme-toggle:hover{background:#f4f4f0;color:#111;transform:rotate(12deg)}.theme-toggle span{font-size:18px;line-height:1}
+/* Give the grid/pixel-search phase a little more time without trapping the final result. */
+.geo-story{height:205vh}
+@media(max-width:760px){.geo-story{height:210vh}.theme-toggle{width:30px;height:30px}.nav-actions{gap:7px}}
+
+html[data-theme="light"]{color-scheme:light;--bg:#eff0eb;--surface:#ffffff;--surface2:#e5e6e1;--text:#111412;--soft:rgba(17,20,18,.7);--muted:rgba(17,20,18,.48);--line:rgba(12,16,13,.12);--line2:rgba(12,16,13,.24)}
+html[data-theme="light"] body,html[data-theme="light"] .geo-story{background:#eff0eb}html[data-theme="light"] .noise{opacity:.055}html[data-theme="light"] .nav-wrap{background:rgba(250,251,247,.82);box-shadow:0 18px 60px #34382d24,inset 0 1px #fff;color:#121512}html[data-theme="light"] .site-header nav a,html[data-theme="light"] .nav-live{color:#4b514b}html[data-theme="light"] .theme-toggle{border-color:#12151228;color:#111412}html[data-theme="light"] .nav-cta{background:#161916;color:#fff}html[data-theme="light"] .geo-pin{background:radial-gradient(circle at 50% 40%,#d9ddd4 0,#eef0eb 48%,#e4e6e0 100%)}html[data-theme="light"] .hero h1,html[data-theme="light"] .hero-sub,html[data-theme="light"] .eyebrow{color:#141714}html[data-theme="light"] .hero-sub{color:#505751}html[data-theme="light"] .story-steps h2{color:#141714;text-shadow:none}html[data-theme="light"] .story-steps p{color:#394039;text-shadow:none}html[data-theme="light"] .story-scene:after{background:linear-gradient(transparent,#eff0eb 74%)}

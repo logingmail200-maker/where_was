@@ -18,6 +18,7 @@ const sourceImage = document.querySelector(".source-frame > img");
 const storyStreetView = document.querySelector(".story-street-view");
 const streetViewControl = document.querySelector(".street-view-control");
 const streetViewButton = streetViewControl?.querySelector("button");
+const themeToggle = document.querySelector(".theme-toggle");
 let liveStoryMap = null;
 let heroParticlePoints = [];
 let sourceParticlePoints = [];
@@ -31,6 +32,26 @@ let streetViewTimer = 0;
 const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, value));
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 let ticking = false;
+
+function applyTheme(theme) {
+  const light = theme === "light";
+  document.documentElement.dataset.theme = light ? "light" : "dark";
+  themeToggle?.setAttribute("aria-pressed", String(light));
+  themeToggle?.setAttribute("aria-label", light ? "Switch to dark mode" : "Switch to light mode");
+  const icon = themeToggle?.querySelector("span");
+  if (icon) icon.textContent = light ? "☾" : "☀";
+}
+
+try {
+  applyTheme(localStorage.getItem("wherewas-theme") || "dark");
+} catch (_) {
+  applyTheme("dark");
+}
+themeToggle?.addEventListener("click", () => {
+  const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+  applyTheme(next);
+  try { localStorage.setItem("wherewas-theme", next); } catch (_) {}
+});
 
 function setStreetViewInteractive(enabled) {
   if (!storyStreetView || !streetViewButton || !streetViewControl) return;
@@ -500,7 +521,7 @@ function applyStoryState(progress, scene) {
   story.style.setProperty("--globe-opacity", (globeReveal * 0.96).toFixed(4));
   story.style.setProperty("--road-reveal", roadReveal.toFixed(4));
   // Keep the square source card below the intro copy before its transition begins.
-  const introStart = innerWidth < 760 ? 78 : 82;
+  const introStart = innerWidth < 760 ? 75 : 79;
   story.style.setProperty("--intro-top", `${introStart - intro * (introStart - 48)}%`);
   root.style.setProperty("--story-intro", intro.toFixed(4));
   root.style.setProperty("--title-dissolve", "0");
@@ -521,12 +542,12 @@ function beginAutomaticStory() {
   if (storyAutoStarted || reducedMotion) return;
   storyAutoStarted = true;
   const started = performance.now();
-  const duration = 5700;
+  const duration = 7200;
   const animate = (now) => {
     const elapsed = now - started;
     const phase = clamp(elapsed / duration);
     storyAutoProgress = 0.27 + easeInOut(phase) * 0.57;
-    storyAutoScene = elapsed < 450 ? 1 : elapsed < 2850 ? 2 : elapsed < 5100 ? 3 : 7;
+    storyAutoScene = elapsed < 450 ? 1 : elapsed < 3800 ? 2 : elapsed < 6500 ? 3 : 7;
     applyStoryState(storyAutoProgress, storyAutoScene);
     if (phase < 1) storyAutoFrame = requestAnimationFrame(animate);
   };
