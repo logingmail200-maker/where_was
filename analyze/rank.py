@@ -95,10 +95,21 @@ def rank(
         similarity = float(item.get("similarity") or 0.0)
         inliers = int(item.get("verified_inliers") or 0)
         ratio = float(item.get("inlier_ratio") or 0.0)
-        visual_score = max(0.0, min(1.0, (similarity + 1.0) / 2.0))
-        geometry_score = min(1.0, inliers / 45.0) * max(0.25, ratio)
-        score = round(min(88, 100 * (0.62 * visual_score + 0.38 * geometry_score)))
-        verified = inliers >= 12 and ratio >= 0.28
+        coverage = float(item.get("match_coverage") or 0.0)
+        grid_cells = int(item.get("match_grid_cells") or 0)
+        descriptor = item.get("descriptor") or "siglip"
+        if descriptor == "scene":
+            # Colour/edge layout is a useful global prefilter, but many roads
+            # share it.  It cannot create a street-level answer on its own.
+            visual_score = max(0.0, min(1.0, (similarity - 0.82) / 0.18))
+            visual_weight, geometry_weight = 0.28, 0.72
+        else:
+            visual_score = max(0.0, min(1.0, (similarity + 1.0) / 2.0))
+            visual_weight, geometry_weight = 0.54, 0.46
+        spatial_score = min(1.0, coverage / 0.12) * min(1.0, grid_cells / 4.0)
+        geometry_score = min(1.0, inliers / 45.0) * min(1.0, max(0.0, ratio) / 0.45) * spatial_score
+        verified = inliers >= 12 and ratio >= 0.28 and coverage >= 0.03 and grid_cells >= 3
+        score = round(min(90 if verified else 59, 100 * (visual_weight * visual_score + geometry_weight * geometry_score)))
         add_cand(
             id=f"retrieval-{item.get('provider', 'ref')}-{item.get('reference_id', '')}",
             name="Licensed street-imagery match",
@@ -109,7 +120,7 @@ def rank(
             score=score,
             why=[
                 f"Visual retrieval similarity {similarity:.3f} against licensed {item.get('provider', 'street')} imagery.",
-                f"Geometric verification: {inliers} consistent local features ({ratio:.0%} inlier ratio).",
+                f"Geometric verification ({item.get('verifier', 'local features')}): {inliers} consistent features, {ratio:.0%} inliers, {coverage:.1%} frame coverage.",
                 "This is a ranked reference-frame match, not a certain street address.",
             ],
             source="retrieval",

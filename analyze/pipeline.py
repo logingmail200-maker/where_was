@@ -16,7 +16,7 @@ from .vision import ask_gemini, ask_person_guard
 from .google_places import bounded_google_place_candidates
 from .street_sources import attach_free_street_sources, verify_shortlist_on_demand
 from .person_guard import detect_prominent_person
-from .retrieval import search as search_retrieval
+from .retrieval import available_regions, search as search_retrieval
 
 
 def _event(obj: dict) -> str:
@@ -27,12 +27,21 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
     t0 = time.time()
     try:
         yield _event({"type": "step", "id": "read", "status": "run", "label": "Reading the file"})
-        exif = await asyncio.to_thread(read_exif, path)
+        # Independent file reads run together.  Previously these were serial,
+        # consuming several seconds before any actual search could begin.
+        exif_task = asyncio.create_task(asyncio.to_thread(read_exif, path))
+        person_task = asyncio.create_task(asyncio.to_thread(detect_prominent_person, path))
+        jpeg_task = asyncio.create_task(asyncio.to_thread(jpeg_bytes_for_search, path))
+        bundle_task = asyncio.create_task(asyncio.to_thread(jpeg_vision_bundle, path))
+        exif, person, jpeg, vision_bundle = await asyncio.gather(
+            exif_task, person_task, jpeg_task, bundle_task
+        )
         kind = await asyncio.to_thread(classify_image, path, exif)
-        person = await asyncio.to_thread(detect_prominent_person, path)
-        jpeg = await asyncio.to_thread(jpeg_bytes_for_search, path)
         if not person.get("available"):
-            person = await ask_person_guard(jpeg)
+            try:
+                person = await asyncio.wait_for(ask_person_guard(jpeg), timeout=5.0)
+            except asyncio.TimeoutError:
+                person = {"available": False, "prominent": False, "error": "Privacy detector timed out"}
         privacy_limited = bool(person.get("prominent")) or not bool(person.get("available"))
         yield _event(
             {
@@ -63,26 +72,28 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
         yield _event({"type": "step", "id": "vision", "status": "run", "label": "Understanding the scene"})
 
         async def do_ocr():
-            return await asyncio.to_thread(run_ocr, path)
+            return await asyncio.wait_for(asyncio.to_thread(run_ocr, path), timeout=9.0)
 
         async def do_rev():
             if privacy_limited:
                 return {"engines": [], "guesses": [], "pages": [], "errors": ["Skipped by privacy guard"]}
-            return await reverse_search(jpeg)
+            return await asyncio.wait_for(reverse_search(jpeg), timeout=11.0)
 
         async def do_revgeo():
             if gps:
                 return await reverse_geocode(gps["lat"], gps["lon"])
             return None
 
+        # Gemini receives the full scene plus sharp crops and performs its own
+        # sign reading, so it need not wait for local OCR.  All four evidence
+        # branches now start together and reconcile afterwards.
         ocr_task = asyncio.create_task(do_ocr())
         rev_task = asyncio.create_task(do_rev())
         geo_task = asyncio.create_task(do_revgeo())
-        ocr_r = await ocr_task
-        ocr_text_for_vision = "" if isinstance(ocr_r, Exception) else (ocr_r.get("text") or "")
-        vision_bundle = await asyncio.to_thread(jpeg_vision_bundle, path)
-        vis_task = asyncio.create_task(ask_gemini(vision_bundle, ocr_text_for_vision))
-        rev_r, geo_r, vis_r = await asyncio.gather(rev_task, geo_task, vis_task, return_exceptions=True)
+        vis_task = asyncio.create_task(asyncio.wait_for(ask_gemini(vision_bundle, ""), timeout=14.0))
+        ocr_r, rev_r, geo_r, vis_r = await asyncio.gather(
+            ocr_task, rev_task, geo_task, vis_task, return_exceptions=True
+        )
         if isinstance(ocr_r, Exception):
             ocr = {"text": "", "lines": [], "plates": [], "coordinates": [], "plus_codes": [], "names": [], "urls": []}
             ocr_err = str(ocr_r)
@@ -140,6 +151,7 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
             )
 
         mind = compose(ocr, visual, exif, kind, rev)
+        mind["region_hints"] = visual.get("regionHints") or []
         names = mind.get("names") or []
         # A vision read of a local sign is allowed to create a *shortlist*
         # query. It still has to resolve to a real mapped place and is never
@@ -156,6 +168,16 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
                 "detail": thought,
             }
         )
+        retrieval_task = None
+        if not privacy_limited:
+            yield _event({"type": "step", "id": "retrieve", "status": "run", "label": "Searching licensed street imagery"})
+            retrieval_task = asyncio.create_task(
+                asyncio.wait_for(
+                    asyncio.to_thread(search_retrieval, path, mind.get("city"), mind=mind, top_k=10),
+                    timeout=10.0,
+                )
+            )
+
         if privacy_limited:
             # We only resolve an approximate city/region in a personal photo;
             # no business/landmark branch matching or street-image retrieval.
@@ -163,9 +185,15 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
             google_task = asyncio.create_task(asyncio.sleep(0, result=[]))
             hunt_task = asyncio.create_task(search_places([city_hint], None, max_queries=1) if city_hint else asyncio.sleep(0, result=[]))
         else:
-            google_task = asyncio.create_task(bounded_google_place_candidates(mind))
-            hunt_task = asyncio.create_task(asyncio.wait_for(hunt(mind, gps), timeout=18.0))
-        hunted_r, google_r = await asyncio.gather(hunt_task, google_task, return_exceptions=True)
+            google_task = asyncio.create_task(asyncio.wait_for(bounded_google_place_candidates(mind), timeout=8.0))
+            hunt_task = asyncio.create_task(asyncio.wait_for(hunt(mind, gps), timeout=8.0))
+        gathered = await asyncio.gather(
+            hunt_task,
+            google_task,
+            retrieval_task if retrieval_task else asyncio.sleep(0, result=[]),
+            return_exceptions=True,
+        )
+        hunted_r, google_r, retrieval_r = gathered
         hunted = (
             hunted_r
             if isinstance(hunted_r, dict)
@@ -214,14 +242,15 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
             }
         )
 
-        retrieval_hits: list[dict] = []
+        retrieval_hits: list[dict] = retrieval_r if isinstance(retrieval_r, list) else []
         if not privacy_limited:
-            yield _event({"type": "step", "id": "retrieve", "status": "run", "label": "Searching licensed street imagery"})
-            try:
-                retrieval_hits = await asyncio.to_thread(search_retrieval, path, mind.get("city"), top_k=10)
-                retrieval_detail = f"{len(retrieval_hits)} verified visual candidates" if retrieval_hits else "No local reference index for this routed city"
-            except Exception as exc:
-                retrieval_detail = f"Unavailable: {str(exc)[:100]}"
+            if retrieval_hits:
+                shards = len({hit.get("region_shard") for hit in retrieval_hits if hit.get("region_shard")})
+                retrieval_detail = f"{len(retrieval_hits)} candidates across {shards or 1} reference region(s)"
+            elif isinstance(retrieval_r, Exception):
+                retrieval_detail = f"Time-limited: {str(retrieval_r)[:90]}"
+            else:
+                retrieval_detail = "No matching licensed reference index is installed"
             yield _event({"type": "step", "id": "retrieve", "status": "done", "label": "Licensed street imagery", "detail": retrieval_detail})
 
         yield _event({"type": "step", "id": "rank", "status": "run", "label": "Ranking candidates"})
@@ -246,8 +275,18 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
         # Query free, crowdsourced street-imagery only after the candidate
         # shortlist exists. This avoids a costly/unbounded worldwide scan.
         if not privacy_limited:
-            await attach_free_street_sources(ranked["candidates"])
-            await verify_shortlist_on_demand(path, ranked["candidates"])
+            # Candidate panorama lookup and local verification are independent.
+            # Bound them so a slow imagery provider cannot hold the final answer.
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(
+                        attach_free_street_sources(ranked["candidates"]),
+                        verify_shortlist_on_demand(path, ranked["candidates"]),
+                    ),
+                    timeout=3.5,
+                )
+            except (asyncio.TimeoutError, Exception):
+                pass
             ranked["candidates"].sort(key=lambda candidate: (-float(candidate.get("score") or 0), candidate.get("radius_m") or 999999))
             ranked["primary"] = next(
                 (candidate for candidate in ranked["candidates"] if candidate.get("score", 0) >= 65 and candidate.get("tier") not in {"city", "region"}),
@@ -381,8 +420,13 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
             "summary": ranked["summary"],
             "thinking": mind.get("thoughts") or [],
             "elapsed_ms": elapsed,
+            "reference_coverage": {
+                "installed_regions": available_regions(),
+                "retrieval_candidates": len(retrieval_hits),
+                "note": "Street-level matching depends on licensed reference coverage in the photographed area.",
+            },
             "limits": [
-                "Street View is opened on the shortlist, not searched across the whole planet.",
+                "Only licensed reference imagery is searched; Street View is opened for shortlist inspection, not scraped.",
                 "Reverse-search engines may CAPTCHA; that is not proof the photo is unique.",
                 "A chain store without a second clue is not a pin.",
                 "Scores are ranking heuristics, not calibrated probabilities.",

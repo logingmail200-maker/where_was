@@ -168,22 +168,27 @@ async def verify_shortlist_on_demand(query_path, candidates: list[dict], max_can
         if candidate.get("lat") is None or candidate.get("lon") is None:
             return
         frames = await mapillary_nearby(float(candidate["lat"]), float(candidate["lon"]), radius_m=180)
-        frames = frames[:3]
+        frames = frames[:5]
         if not frames:
             candidate["on_demand_verification"] = {"attempted": True, "frames": 0, "inliers": 0}
             return
         best_inliers, best_ratio, checked = 0, 0.0, 0
         async with _client() as client:
-            for frame in frames:
+            async def check(frame: dict) -> tuple[int, float] | None:
                 try:
                     response = await client.get(frame["thumbnail"])
                     response.raise_for_status()
-                    inliers, ratio = await asyncio.to_thread(_orb_check, query_path, response.content)
-                    checked += 1
-                    if (inliers, ratio) > (best_inliers, best_ratio):
-                        best_inliers, best_ratio = inliers, ratio
+                    return await asyncio.to_thread(_orb_check, query_path, response.content)
                 except Exception:
+                    return None
+            checks = await asyncio.gather(*(check(frame) for frame in frames))
+            for checked_result in checks:
+                if checked_result is None:
                     continue
+                inliers, ratio = checked_result
+                checked += 1
+                if (inliers, ratio) > (best_inliers, best_ratio):
+                    best_inliers, best_ratio = inliers, ratio
         candidate["on_demand_verification"] = {
             "attempted": True, "frames": checked, "inliers": best_inliers, "inlier_ratio": best_ratio,
             "provider": "mapillary", "attribution": "© Mapillary, CC-BY-SA",

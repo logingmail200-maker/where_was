@@ -7,5 +7,6 @@ exifread>=3.0.0
 pillow>=10.0.0
 pillow-heif>=0.18.0
 rapidocr-onnxruntime>=1.4.0
+opencv-python-headless>=4.10.0,<5
 openlocationcode>=1.0.1
 playwright>=1.49.0

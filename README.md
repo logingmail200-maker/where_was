@@ -2,15 +2,15 @@
 
 Local website: drop a photo or screenshot, get a **pin or a shortlist with a radius** — not a fake exact address.
 
-## What this build does (~30s)
+## What this build does (time-budgeted for ~20–25s)
 
 1. Photo vs screenshot
 2. EXIF GPS (still reads the frame)
-3. OCR on the full frame **and edge crops** — names, India plates, plus codes, Maps `@lat,lon` URLs
-4. Reverse image search: Yandex + Bing, then headless Chromium if HTML is junk
-5. OpenStreetMap names + **two-clue pairs** (two different names within 800 m) + flyover/metro if the photo mentions them
-6. Rank: unique + second clue → pin; chain/plate → region
-7. Street View **on the shortlist** (not a scan of the planet)
+3. In parallel: OCR, multimodal scene clues, reverse search and metadata lookup
+4. Route clues to several licensed regional indexes while also searching the merged global index
+5. Geometrically verify likely frames with SIFT/homography; colour/terrain similarity alone cannot create a street pin
+6. OpenStreetMap/Places names + **two-clue pairs** + nearby Mapillary verification
+7. Fuse the evidence into a top-10 shortlist with confidence/radius, then open Street View only for inspection
 
 Kannada/Hindi OCR needs extra language packs (not installed in this environment). Visual “architecture guess” needs a Gemini key in `GEMINI_API_KEY` (not required).
 
@@ -63,12 +63,30 @@ area before collecting a larger city dataset:
 
 ```bash
 python tools/download_mapillary_reference.py --city bengaluru --bbox 12.90,77.54,12.99,77.65 --max-images 1000
-python tools/build_reference_index.py --city bengaluru
+python tools/build_reference_index.py --city bengaluru --lightweight
+python tools/build_reference_index.py --global-index
 ```
 
 The collector records coordinates, provider, license, and required Mapillary
-attribution in `metadata.jsonl`. The app uses the index only after routing an
-image to a city; it does not perform a live worldwide street-image search.
+attribution in `metadata.jsonl`. The app searches the global index and up to
+five clue-routed shards concurrently. The global index stores vectors and
+metadata only, so it does not duplicate all downloaded images.
+
+The default Render configuration uses a compact OpenCV descriptor because a
+free 512 MB service cannot reliably load SigLIP. It is a coarse prefilter and
+requires geometric agreement before a fine result is allowed. For materially
+better worldwide retrieval, build SigLIP vectors on a GPU/memory-equipped
+machine with:
+
+```bash
+pip install -r requirements-retrieval.txt
+python tools/build_reference_index.py --city bengaluru
+python tools/build_reference_index.py --global-index
+```
+
+No algorithm can match an arbitrary world street if licensed reference
+imagery does not cover that place. `reference_coverage` in every API result
+makes this limitation explicit instead of returning a fabricated exact pin.
 
 CPU indexing can take minutes for thousands of images and visual verification
 is slower on CPU. A CUDA GPU materially speeds both embedding creation and

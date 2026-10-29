@@ -1,0 +1,7 @@
+# Optional high-accuracy retrieval dependencies for index builders and a
+# memory/GPU-equipped API deployment.  The main Render service uses the
+# OpenCV descriptor unless WHEREWAS_LIGHTWEIGHT=0 and these are installed.
+-r requirements.txt
+torch>=2.5.0
+transformers>=4.47.0
+faiss-cpu>=1.9.0
