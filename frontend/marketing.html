@@ -1,8 +1,8 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#050506">
   <meta name="description" content="WhereWas turns visual scenes into defensible location matches.">
   <title>WhereWas — visual location intelligence</title>
@@ -11,20 +11,24 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/maplibre-gl.css">
   <link rel="stylesheet" href="/marketing.css?v=28">
+  <link rel="stylesheet" href="/marketing-update.css?v=1">
 </head>
 <body>
   <div class="noise" aria-hidden="true"></div>
   <header class="site-header" id="site-header">
     <div class="nav-wrap">
       <a class="brand" href="#top" aria-label="WhereWas home"><img class="brand-logo" src="/assets/wherewas-logo.svg?v=2" alt=""><b>WhereWas</b></a>
-      <nav aria-label="Primary navigation"><a href="#platform">Platform</a><a href="#method">Method</a><a href="/pricing">Pricing</a><a href="#articles">Articles</a></nav>
-      <div class="nav-actions"><button class="theme-toggle" type="button" aria-label="Switch to light mode" aria-pressed="false"><span aria-hidden="true">☀</span></button><span class="nav-live"><i></i>LIVE</span><a class="nav-cta" href="/try">Try WhereWas <span>↗</span></a></div>
+      <nav id="primary-nav" aria-label="Primary navigation"><a href="#platform">Platform</a><a href="#method">Method</a><a href="/pricing">Pricing</a><a href="#articles">Articles</a></nav>
+      <div class="nav-actions"><button class="theme-toggle" type="button" aria-label="Switch to light mode" aria-pressed="false"><span aria-hidden="true">☀</span></button><span class="nav-live"><i></i>LIVE</span><a class="nav-cta" href="/try">Try WhereWas <span>↗</span></a><button class="menu-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="primary-nav"><span></span><span></span></button></div>
     </div>
   </header>
 
   <main id="top">
-    <section class="geo-story" id="search-story" aria-label="From image to exact street">
+    <section class="geo-story" id="search-story" aria-label="Illustrative photo-to-place search">
       <div class="geo-pin">
+        <button class="story-skip" type="button" hidden>Skip animation <span aria-hidden="true">↗</span></button>
+        <button class="story-start" type="button">Scroll to explore <span aria-hidden="true">↓</span></button>
+        <p class="sr-only story-status" role="status" aria-live="polite"></p>
         <section class="hero" id="hero">
           <canvas class="hero-pixels" id="hero-pixels" aria-hidden="true"></canvas>
           <div class="hero-copy">
@@ -35,9 +39,10 @@
         </section>
         <div class="story-scene">
           <div id="story-live-map" class="story-live-map" aria-hidden="true"></div>
-          <iframe class="story-street-view" title="Interactive 360 degree Street View of Sheikh Mohammed bin Rashid Boulevard, Dubai" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade" src="https://maps.google.com/maps?q=25.1912354,55.276428&amp;layer=c&amp;cbll=25.1912354,55.276428&amp;cbp=11,288.53,0,0,0&amp;output=svembed"></iframe>
-          <div class="street-view-control">
-            <button type="button" aria-pressed="false">Explore 360°</button>
+          <div class="street-view-panel" aria-hidden="true">
+            <iframe class="story-street-view" title="Interactive 360 degree Street View of Sheikh Mohammed bin Rashid Boulevard, Dubai" tabindex="-1" allowfullscreen referrerpolicy="no-referrer-when-downgrade" data-src="https://maps.google.com/maps?q=25.1912354,55.276428&amp;layer=c&amp;cbll=25.1912354,55.276428&amp;cbp=11,288.53,0,0,0&amp;output=svembed"></iframe>
+            <p class="street-view-status" role="status">Loading street imagery…</p>
+            <div class="street-view-control"><button type="button" aria-pressed="false">Explore 360°</button></div>
           </div>
           <div class="pixel-matrix" aria-hidden="true"></div>
           <svg class="road-trace" viewBox="0 0 1200 700" preserveAspectRatio="none" aria-hidden="true">
@@ -74,11 +79,11 @@
             <p>Sheikh Mohammed bin Rashid Boulevard</p>
           </div>
           <div class="final-place">
-            <small>TOP MATCH · RANK 1 OF 10</small>
+            <small>ILLUSTRATIVE RESULT · DUBAI</small>
             <h3>Sheikh Mohammed bin Rashid Boulevard</h3>
             <p>Downtown Dubai · United Arab Emirates</p>
             <code>25.1912° N · 55.2764° E</code>
-            <b><i></i> Location resolved</b>
+            <b><i></i> Street context available</b>
           </div>
         </div>
 
@@ -118,17 +123,36 @@
 
     <section class="intelligence section">
       <div class="intel-copy reveal"><p class="eyebrow">One workspace</p><h2>Turn pixels into<br>defensible decisions.</h2><p>Upload the frame, inspect the strongest clues, compare candidates on the map, and preserve the decision with its context.</p></div>
-      <article class="case-card reveal"><div class="case-image"><iframe title="Street View of Kalyan Jewellers, Koramangala, Bengaluru" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="https://maps.google.com/maps?q=12.9346427,77.6241613&amp;layer=c&amp;cbll=12.9346427,77.6241613&amp;cbp=11,80,0,0,0&amp;output=svembed"></iframe></div><div class="case-shade"></div><div class="case-copy"><small>CASE WORKSPACE / 01 · KORAMANGALA, BENGALURU</small><h3>From a Kannada shopfront and flyover to a location shortlist.</h3><span class="case-state"><i></i> STREET-LEVEL CONTEXT</span></div></article>
+      <article class="evidence-case reveal">
+        <figure><img src="/assets/field-bengaluru.jpg" alt="Bengaluru street with autorickshaws, shop signs and a divided road" loading="lazy" width="1920" height="1080"><figcaption><a href="https://www.mapillary.com/app/?pKey=2850385311894788">© ranjithjoy / Mapillary</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA</a></figcaption></figure>
+        <div class="evidence-case-body"><small>ILLUSTRATIVE WORKFLOW / INDIA</small><h3>From street clues to map evidence.</h3><ul class="evidence-clues"><li>Shop names</li><li>Autorickshaws</li><li>Divided road</li></ul><div class="candidate-preview"><span class="candidate-number">01</span><div><b>Bengaluru, India</b><p>A candidate to compare with reference imagery.</p></div><span class="candidate-tag">Review</span></div><a class="evidence-link" href="/articles/visual-shortlist.html">Follow the evidence <span aria-hidden="true">↗</span></a></div>
+      </article>
     </section>
 
     <section class="stories section" id="articles">
       <div class="stories-intro reveal"><p class="eyebrow">Field notes</p><h2>Visual location, explained.</h2><p>Short reads on evidence, verification, and responsible visual search.</p></div>
       <div class="story-grid">
-        <article class="story-card reveal"><div class="story-image story-a"><span>Bengaluru · 6 min</span><a class="image-credit" href="https://www.mapillary.com/app/?pKey=2850385311894788" aria-label="Bengaluru image by ranjithjoy on Mapillary">© ranjithjoy / Mapillary · CC BY-SA</a></div><div><small>FIELD NOTE / 01 · INDIA</small><h3>Kannada signs, autorickshaws and road form become a reviewable shortlist.</h3><a href="/articles/visual-shortlist.html">Read field note <span>→</span></a></div></article>
-        <article class="story-card reveal"><div class="story-image story-b"><span>Mumbai · 4 min</span><a class="image-credit" href="https://www.mapillary.com/app/?pKey=3164309240466048" aria-label="Mumbai image by a17archives on Mapillary">© a17archives / Mapillary · CC BY-SA</a></div><div><small>FIELD NOTE / 02 · INDIA</small><h3>A street sign, pavement and traffic pattern provide separate clues.</h3><a href="/articles/reviewable-results.html">Explore the workflow <span>→</span></a></div></article>
-        <article class="story-card reveal"><div class="story-image story-c"><span>London · 5 min</span><a class="image-credit" href="https://www.mapillary.com/app/?pKey=1310232187355024" aria-label="London image by southglos on Mapillary">© southglos / Mapillary · CC BY-SA</a></div><div><small>FIELD NOTE / 03 · UK</small><h3>Architecture and transit help verify a candidate without claiming certainty.</h3><a href="/articles/responsible-security.html">Read the principles <span>→</span></a></div></article>
-        <article class="story-card reveal"><div class="story-image story-d"><span>Switzerland · 5 min</span><a class="image-credit" href="https://www.mapillary.com/app/?pKey=2632351727162768" aria-label="Swiss road image by bct on Mapillary">© bct / Mapillary · CC BY-SA</a></div><div><small>FIELD NOTE / 04 · GEOGRAPHY</small><h3>Terrain, vegetation and road design matter when there is no storefront.</h3><a href="/articles/terrain-and-road.html">Read field note <span>→</span></a></div></article>
+        <article class="story-card reveal"><div class="story-image story-a"><span>Bengaluru · 3 min</span><a class="image-credit" href="https://www.mapillary.com/app/?pKey=2850385311894788" aria-label="Bengaluru image by ranjithjoy on Mapillary">© ranjithjoy / Mapillary · CC BY-SA</a></div><div><small>FIELD NOTE / 01 · INDIA</small><h3>Kannada signs, autorickshaws and road form become a reviewable shortlist.</h3><a href="/articles/visual-shortlist.html">Read field note <span>→</span></a></div></article>
+        <article class="story-card reveal"><div class="story-image story-b"><span>Mumbai · 3 min</span><a class="image-credit" href="https://www.mapillary.com/app/?pKey=3164309240466048" aria-label="Mumbai image by a17archives on Mapillary">© a17archives / Mapillary · CC BY-SA</a></div><div><small>FIELD NOTE / 02 · INDIA</small><h3>A street sign, pavement and traffic pattern provide separate clues.</h3><a href="/articles/reviewable-results.html">Explore the workflow <span>→</span></a></div></article>
+        <article class="story-card reveal"><div class="story-image story-c"><span>London · 3 min</span><a class="image-credit" href="https://www.mapillary.com/app/?pKey=1310232187355024" aria-label="London image by southglos on Mapillary">© southglos / Mapillary · CC BY-SA</a></div><div><small>FIELD NOTE / 03 · UK</small><h3>Architecture and transit help verify a candidate without claiming certainty.</h3><a href="/articles/responsible-security.html">Read field note <span>→</span></a></div></article>
+        <article class="story-card reveal"><div class="story-image story-d"><span>Switzerland · 3 min</span><a class="image-credit" href="https://www.mapillary.com/app/?pKey=2632351727162768" aria-label="Swiss road image by bct on Mapillary">© bct / Mapillary · CC BY-SA</a></div><div><small>FIELD NOTE / 04 · GEOGRAPHY</small><h3>Terrain, vegetation and road design matter when there is no storefront.</h3><a href="/articles/terrain-and-road.html">Read field note <span>→</span></a></div></article>
       </div>
+    </section>
+
+    <section class="why-wherewas section" id="why-wherewas">
+      <div class="why-intro reveal"><p class="eyebrow">Why use WhereWas?</p><h2>A place to start.<br>Evidence to go further.</h2><p>Find a place, inspect the evidence, and verify it on the map—in one workflow.</p></div>
+      <div class="comparison-grid reveal">
+        <article><small>GOOGLE LENS</small><h3>Explore visual matches.</h3><p>Useful for recognizing landmarks, reading text and finding related images or pages.</p><a href="https://blog.google/products-and-platforms/devices/google-lens/google-lens-features/">About Lens <span aria-hidden="true">↗</span></a></article>
+        <article><small>GEMINI</small><h3>Ask about the scene.</h3><p>Useful for discussing an image, interpreting its details and exploring possible explanations.</p><a href="https://ai.google.dev/gemini-api/docs/image-understanding">About image understanding <span aria-hidden="true">↗</span></a></article>
+        <article class="wherewas-comparison"><small>WHEREWAS</small><h3>Review location candidates.</h3><p>A focused workspace for ranked places, supporting clues, candidate coordinates, estimated radius and available street imagery.</p><a href="#platform">Explore the workflow <span aria-hidden="true">↓</span></a></article>
+      </div>
+      <ol class="evidence-flow reveal" aria-label="From an uploaded image to a location candidate">
+        <li><span>01 / PHOTO</span><div class="flow-photo"><img src="/assets/field-mumbai.jpg" alt="Mumbai street used as an illustrative place photograph" loading="lazy" width="2048" height="1153"></div><h3>Start with what you see.</h3><p>A public street, a building or the surrounding landscape.</p></li>
+        <li><span>02 / CLUES</span><div class="flow-clues" aria-hidden="true"><b>Visible text</b><b>Road layout</b><b>Scene context</b></div><h3>Inspect the reasoning.</h3><p>See which observed details support each candidate.</p></li>
+        <li><span>03 / REFERENCE</span><div class="flow-reference" aria-hidden="true"><i></i><i></i><b>Compare</b></div><h3>Check the street context.</h3><p>Compare licensed reference images where coverage exists. Nearby imagery alone is not a verified match.</p></li>
+        <li><span>04 / RESULT</span><div class="flow-result" aria-hidden="true"><b>Ranked candidates</b><span>Coordinates · score · radius</span><i></i></div><h3>Keep uncertainty visible.</h3><p>Use the shortlist and estimated radius to decide what needs further checking.</p></li>
+      </ol>
+      <p class="why-note reveal">Illustrative workflow. Street imagery and matching coverage vary by location. Passing pedestrians can appear in place photos; when a person is prominent, results are limited to a broad city area. Photo: <a href="https://www.mapillary.com/app/?pKey=3164309240466048">a17archives / Mapillary</a>, <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA</a>.</p>
     </section>
 
     <section class="final-cta section reveal"><div><p class="eyebrow">Ready when you are</p><h2>One image. One search.<br>See where it leads.</h2></div><a class="primary-btn" href="/try">Try WhereWas once <span>↗</span></a></section>
@@ -140,6 +164,6 @@
   </footer>
 
   <script src="/maplibre-gl.js"></script>
-  <script src="/marketing.js?v=24"></script>
+  <script src="/marketing.js?v=29"></script>
 </body>
 </html>

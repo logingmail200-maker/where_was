@@ -19,6 +19,15 @@ const storyStreetView = document.querySelector(".story-street-view");
 const streetViewControl = document.querySelector(".street-view-control");
 const streetViewButton = streetViewControl?.querySelector("button");
 const themeToggle = document.querySelector(".theme-toggle");
+const menuToggle = document.querySelector(".menu-toggle");
+const primaryNav = document.querySelector("#primary-nav");
+const mobileNavigation = matchMedia("(max-width: 900px)");
+const compactStory = matchMedia("(max-width: 760px)");
+const storyStart = document.querySelector(".story-start");
+const storySkip = document.querySelector(".story-skip");
+const storyStatus = document.querySelector(".story-status");
+const streetViewPanel = document.querySelector(".street-view-panel");
+const streetViewStatus = document.querySelector(".street-view-status");
 let liveStoryMap = null;
 let heroParticlePoints = [];
 let sourceParticlePoints = [];
@@ -27,7 +36,18 @@ let storyAutoStarted = false;
 let storyAutoScene = 0;
 let storyAutoProgress = 0;
 let storyAutoFrame = 0;
-let streetViewTimer = 0;
+let storyLocked = false;
+let storyComplete = false;
+let waitingForStreetView = false;
+let streetDocumentReady = false;
+let storyLoadTimer = 0;
+let storySafetyTimer = 0;
+let storyReleaseTimer = 0;
+let lockScrollY = 0;
+let touchStartY = null;
+let touchActive = false;
+let releasePending = false;
+let openingPhotoTop = null;
 
 const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, value));
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -40,38 +60,175 @@ function applyTheme(theme) {
   themeToggle?.setAttribute("aria-label", light ? "Switch to dark mode" : "Switch to light mode");
   const icon = themeToggle?.querySelector("span");
   if (icon) icon.textContent = light ? "☾" : "☀";
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", light ? "#f6f7f3" : "#050506");
 }
 
-try {
-  applyTheme(localStorage.getItem("wherewas-theme") || "dark");
-} catch (_) {
-  applyTheme("dark");
-}
+// Every fresh page opens in dark mode; the switch applies to this visit only.
+applyTheme("dark");
 themeToggle?.addEventListener("click", () => {
   const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
   applyTheme(next);
-  try { localStorage.setItem("wherewas-theme", next); } catch (_) {}
 });
 
 function setStreetViewInteractive(enabled) {
   if (!storyStreetView || !streetViewButton || !streetViewControl) return;
-  clearTimeout(streetViewTimer);
   storyStreetView.classList.toggle("is-interactive", enabled);
+  streetViewPanel?.classList.toggle("is-interactive", enabled);
   streetViewControl.classList.toggle("is-active", enabled);
   streetViewButton.setAttribute("aria-pressed", String(enabled));
-  streetViewButton.textContent = enabled ? "Return to page scroll" : "Explore 360°";
-  if (enabled && matchMedia("(pointer: coarse)").matches) {
-    streetViewTimer = window.setTimeout(() => setStreetViewInteractive(false), 7000);
-  }
+  storyStreetView.tabIndex = enabled ? 0 : -1;
+  streetViewButton.textContent = enabled ? "Done · scroll page" : "Explore 360°";
 }
 
 streetViewButton?.addEventListener("click", () => {
   setStreetViewInteractive(!storyStreetView?.classList.contains("is-interactive"));
 });
-storyStreetView?.addEventListener("mouseleave", () => setStreetViewInteractive(false));
 addEventListener("keydown", (event) => {
-  if (event.key === "Escape") setStreetViewInteractive(false);
+  if (event.key === "Escape") {
+    setStreetViewInteractive(false);
+    if (header?.classList.contains("menu-open")) {
+      setMenuOpen(false);
+      menuToggle?.focus();
+    } else if (storyLocked) skipStory();
+  }
 });
+
+function setMenuOpen(open) {
+  const expanded = mobileNavigation.matches && open;
+  header?.classList.toggle("menu-open", expanded);
+  menuToggle?.setAttribute("aria-expanded", String(expanded));
+  menuToggle?.setAttribute("aria-label", expanded ? "Close menu" : "Open menu");
+  if (primaryNav) primaryNav.inert = mobileNavigation.matches && !expanded;
+}
+menuToggle?.addEventListener("click", () => setMenuOpen(!header.classList.contains("menu-open")));
+mobileNavigation.addEventListener("change", () => setMenuOpen(false));
+setMenuOpen(false);
+document.addEventListener("click", (event) => {
+  if (!header?.contains(event.target)) setMenuOpen(false);
+});
+primaryNav?.addEventListener("focusout", () => {
+  setTimeout(() => { if (!header.contains(document.activeElement)) setMenuOpen(false); }, 0);
+});
+header?.querySelectorAll("a").forEach((link) => link.addEventListener("click", () => {
+  setMenuOpen(false);
+  if (storyLocked || !storyComplete) skipStory();
+}));
+
+function preloadStreetView() {
+  if (storyStreetView && !storyStreetView.getAttribute("src")) {
+    storyStreetView.src = storyStreetView.dataset.src;
+  }
+}
+storyStreetView?.addEventListener("load", () => {
+  if (!storyStreetView.getAttribute("src")) return;
+  // Cross-origin load confirms the embed document, not a successful visual match
+  // or completion of all panorama tiles. The watchdog still bounds the wait.
+  streetDocumentReady = true;
+  if (streetViewStatus) streetViewStatus.hidden = true;
+  if (waitingForStreetView) presentStory();
+});
+
+function lockStory() {
+  lockScrollY = story.offsetTop;
+  root.style.setProperty("--story-lock-y", String(lockScrollY));
+  root.classList.add("story-scroll-locked");
+  storyLocked = true;
+  story.dataset.playback = "playing";
+}
+function unlockStory() {
+  clearTimeout(storySafetyTimer);
+  clearTimeout(storyReleaseTimer);
+  releasePending = false;
+  if (!storyLocked) return;
+  storyLocked = false;
+  root.classList.add("story-restoring");
+  root.classList.remove("story-scroll-locked");
+  root.style.removeProperty("--story-lock-y");
+  window.scrollTo(0, lockScrollY);
+  requestAnimationFrame(() => root.classList.remove("story-restoring"));
+}
+function releaseAfterGesture() {
+  releasePending = true;
+  if (touchActive) return; // Discard the swipe that started or continued playback.
+  clearTimeout(storyReleaseTimer);
+  storyReleaseTimer = window.setTimeout(unlockStory, 160);
+}
+function presentStory(force = false) {
+  if (storyComplete) return;
+  waitingForStreetView = true;
+  if (!streetDocumentReady && !force) return;
+  storyComplete = true;
+  waitingForStreetView = false;
+  storyAutoStarted = true;
+  cancelAnimationFrame(storyAutoFrame);
+  clearTimeout(storyLoadTimer);
+  applyStoryState(0.84, 7);
+  story.dataset.playback = "complete";
+  storySkip.hidden = true;
+  storyStart.hidden = true;
+  if (!streetDocumentReady && streetViewStatus) {
+    streetViewStatus.textContent = "Street imagery is still loading. You can continue below.";
+  }
+  if (storyStatus) storyStatus.textContent = "Example result ready. Explore the panorama or scroll to continue.";
+  // Give the result a painted frame before returning normal scrolling.
+  storyReleaseTimer = window.setTimeout(releaseAfterGesture, 450);
+}
+function skipStory() {
+  if (!story) return;
+  preloadStreetView();
+  presentStory(true);
+  unlockStory();
+}
+storySkip?.addEventListener("click", skipStory);
+storyStart?.addEventListener("click", beginAutomaticStory);
+
+function atOpeningStory() {
+  if (!story || storyAutoStarted || storyComplete || header?.classList.contains("menu-open")) return false;
+  const top = story.getBoundingClientRect().top;
+  return top <= 8 && top > -innerHeight * 0.4;
+}
+const isControl = (target) => target instanceof Element && !!target.closest("a, button, input, textarea, select, [contenteditable='true']");
+addEventListener("wheel", (event) => {
+  if (event.ctrlKey) return; // Keep browser pinch zoom available.
+  if (storyLocked) { event.preventDefault(); return; }
+  if (event.deltaY > 0 && atOpeningStory() && !isControl(event.target)) {
+    event.preventDefault();
+    beginAutomaticStory();
+  }
+}, { passive: false });
+addEventListener("touchstart", (event) => {
+  touchActive = true;
+  touchStartY = event.touches.length === 1 && !isControl(event.target) ? event.touches[0].clientY : null;
+}, { passive: true });
+addEventListener("touchmove", (event) => {
+  if (event.touches.length !== 1) return;
+  if (storyLocked) { event.preventDefault(); return; }
+  if (touchStartY !== null && touchStartY - event.touches[0].clientY > 12 && atOpeningStory()) {
+    event.preventDefault();
+    beginAutomaticStory();
+  }
+}, { passive: false });
+function endStoryTouch(event) {
+  touchActive = event.touches.length > 0;
+  if (!touchActive) {
+    touchStartY = null;
+    if (releasePending) releaseAfterGesture();
+  }
+}
+addEventListener("touchend", endStoryTouch, { passive: true });
+addEventListener("touchcancel", endStoryTouch, { passive: true });
+addEventListener("keydown", (event) => {
+  if (!["ArrowDown", "PageDown", " ", "End", "ArrowUp", "PageUp", "Home"].includes(event.key) || isControl(event.target)) return;
+  if (storyLocked) event.preventDefault();
+  else if (["ArrowDown", "PageDown", " "].includes(event.key) && atOpeningStory()) {
+    event.preventDefault();
+    beginAutomaticStory();
+  }
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden && storyLocked) skipStory();
+});
+addEventListener("pagehide", () => { if (storyLocked) skipStory(); });
 
 function easeInOut(value) {
   const t = clamp(value);
@@ -213,8 +370,8 @@ function hash(value) {
 function prepareSourceParticles() {
   if (!sourcePixelCanvas || !sourceImage || !sourceImage.complete) return;
   const sample = document.createElement("canvas");
-  sample.width = 180;
-  sample.height = 102;
+  sample.width = compactStory.matches ? 72 : 180;
+  sample.height = compactStory.matches ? 42 : 102;
   const ctx = sample.getContext("2d", { willReadFrequently: true });
   try {
     ctx.drawImage(sourceImage, 0, 0, sample.width, sample.height);
@@ -243,7 +400,7 @@ function prepareSourceParticles() {
 function drawSourcePixelFlow(progress) {
   if (!sourcePixelCanvas) return;
   const rect = sourcePixelCanvas.getBoundingClientRect();
-  const dpr = Math.min(devicePixelRatio || 1, 2);
+  const dpr = Math.min(devicePixelRatio || 1, compactStory.matches ? 1.5 : 2);
   const width = Math.max(1, Math.round(rect.width));
   const height = Math.max(1, Math.round(rect.height));
   if (sourcePixelCanvas.width !== Math.round(width * dpr) || sourcePixelCanvas.height !== Math.round(height * dpr)) {
@@ -514,6 +671,9 @@ function applyStoryState(progress, scene) {
   const globeReveal = easeInOut((progress - 0.34) / 0.045);
   const roadReveal = easeInOut((progress - 0.69) / 0.07);
   story.dataset.scene = String(scene);
+  streetViewPanel?.setAttribute("aria-hidden", String(scene !== 7));
+  if (streetViewPanel) streetViewPanel.inert = scene !== 7;
+  header?.classList.toggle("scrolled", window.scrollY > 18 || progress > 0.08);
   story.style.setProperty("--story-p", progress.toFixed(4));
   story.style.setProperty("--intro-scale", (0.4 + intro * 0.6).toFixed(4));
   story.style.setProperty("--source-opacity", (1 - sourceCollapse).toFixed(4));
@@ -521,8 +681,9 @@ function applyStoryState(progress, scene) {
   story.style.setProperty("--globe-opacity", (globeReveal * 0.96).toFixed(4));
   story.style.setProperty("--road-reveal", roadReveal.toFixed(4));
   // Keep the source photograph close to the copy, then lift it into the scan stage.
-  const introStart = innerWidth < 760 ? 71 : 74;
-  story.style.setProperty("--intro-top", `${introStart - intro * (introStart - 48)}%`);
+  const sceneHeight = story.querySelector(".story-scene").clientHeight;
+  const introStart = openingPhotoTop ?? sceneHeight * .72;
+  story.style.setProperty("--intro-top", `${introStart + intro * (sceneHeight * .48 - introStart)}px`);
   root.style.setProperty("--story-intro", intro.toFixed(4));
   root.style.setProperty("--title-dissolve", "0");
   storySteps.forEach((step) => step.classList.toggle("active", Number(step.dataset.step) === scene));
@@ -530,35 +691,65 @@ function applyStoryState(progress, scene) {
     targetLabel.textContent = scene === 2 ? "Searching" : "Street targeting";
     targetValue.textContent = scene === 2 ? "Global index" : "Downtown Dubai";
   }
-  if (scene === 7 && storyStreetView && !storyStreetView.getAttribute("src")) {
-    storyStreetView.src = storyStreetView.dataset.src;
+  if (scene === 7) preloadStreetView();
+  if (!liveStoryMap && scene === 3) drawStoryMap(progress);
+  drawSourcePixelFlow(progress);
+  if (scene === 2 || scene === 3) {
+    updateLiveStoryMap(progress);
+    if (!liveStoryMap && scene === 2) drawStoryGlobe(performance.now());
   }
-  drawStoryMap(progress);
-  if (innerWidth >= 760) drawSourcePixelFlow(progress);
-  updateLiveStoryMap(progress);
 }
 
 function beginAutomaticStory() {
-  if (storyAutoStarted || reducedMotion) return;
+  if (storyAutoStarted || !story) return;
+  if (reducedMotion) { skipStory(); return; }
   storyAutoStarted = true;
+  storyStart.hidden = true;
+  storySkip.hidden = false;
+  lockStory();
+  preloadStreetView();
+  // Fixed durations decouple the sequence from touch/wheel frequency.
+  storyLoadTimer = window.setTimeout(() => presentStory(true), 11500);
+  storySafetyTimer = window.setTimeout(() => { presentStory(true); unlockStory(); }, 14000);
+  if (storyStatus) storyStatus.textContent = "Playing the example search. You can skip the animation.";
+  try { initialiseLiveStoryMap(); } catch (_) {}
+  if (!liveStoryMap) story.classList.add("map-fallback");
   const started = performance.now();
+  const introDuration = 800;
   const scanHold = 1450;
   const transitionDuration = 5750;
-  const duration = scanHold + transitionDuration;
+  const duration = introDuration + scanHold + transitionDuration;
+  let lastPaint = 0;
   const animate = (now) => {
+    if (storyComplete) return;
+    // Limit small-screen drawing to 30 fps; the timeline stays time-based.
+    if (compactStory.matches && now - lastPaint < 32) {
+      storyAutoFrame = requestAnimationFrame(animate);
+      return;
+    }
+    lastPaint = now;
     const elapsed = now - started;
-    if (elapsed < scanHold) {
+    if (elapsed < introDuration) {
+      storyAutoProgress = easeInOut(elapsed / introDuration) * 0.14;
+      storyAutoScene = 0;
+    } else if (elapsed < introDuration + scanHold) {
       // The photo stays whole and stationary while the grid performs one scan.
       storyAutoProgress = 0.18;
       storyAutoScene = 1;
     } else {
-      const transitionElapsed = elapsed - scanHold;
+      const transitionElapsed = elapsed - introDuration - scanHold;
       const phase = clamp(transitionElapsed / transitionDuration);
       storyAutoProgress = 0.27 + easeInOut(phase) * 0.57;
-      storyAutoScene = transitionElapsed < 2700 ? 2 : transitionElapsed < 5000 ? 3 : 7;
+      storyAutoScene = transitionElapsed < 2700 ? 2 : 3;
     }
-    applyStoryState(storyAutoProgress, storyAutoScene);
-    if (elapsed < duration) storyAutoFrame = requestAnimationFrame(animate);
+    try {
+      applyStoryState(storyAutoProgress, storyAutoScene);
+      if (elapsed < duration) storyAutoFrame = requestAnimationFrame(animate);
+      else presentStory();
+    } catch (_) {
+      // A rendering error must never leave the document scroll-locked.
+      skipStory();
+    }
   };
   storyAutoFrame = requestAnimationFrame(animate);
 }
@@ -566,7 +757,7 @@ function beginAutomaticStory() {
 function updateScrollScene() {
   const y = window.scrollY;
   if (header) {
-    header.classList.toggle("scrolled", y > 18);
+    header.classList.toggle("scrolled", y > 18 || storyAutoStarted);
   }
   if (!reducedMotion && hero) {
     const travel = Math.max(1, hero.offsetHeight - innerHeight);
@@ -579,16 +770,12 @@ function updateScrollScene() {
     const progress = clamp((innerHeight - rect.top) / (innerHeight + rect.height));
     editorial.style.setProperty("--editorial-y", `${(progress - 0.5) * 54}px`);
   }
-  if (story) {
-    const rect = story.getBoundingClientRect();
-    const travel = Math.max(1, story.offsetHeight - innerHeight);
-    const progress = clamp(-rect.top / travel);
-    let scene = 0;
-    if (progress >= 0.14) scene = 1;
-    if (reducedMotion) scene = 7;
-    if (!storyAutoStarted) applyStoryState(progress, scene);
-    if (progress >= 0.18 && !storyAutoStarted && !reducedMotion) beginAutomaticStory();
-    if (reducedMotion) applyStoryState(0.84, 7);
+  if (story && !storyAutoStarted) {
+    // Restored positions and deep links bypass the gesture handlers.
+    // Never pull a visitor back up from a section below the hero.
+    if (y > story.offsetTop + innerHeight * 0.4) skipStory();
+    else if (y > story.offsetTop + 8) beginAutomaticStory();
+    else applyStoryState(0, 0);
   }
   ticking = false;
 }
@@ -600,15 +787,28 @@ addEventListener("scroll", () => {
   }
 }, { passive: true });
 addEventListener("resize", updateScrollScene);
-addEventListener("resize", prepareHeroParticles);
 addEventListener("resize", prepareSourceParticles);
-document.fonts?.ready.then(prepareHeroParticles);
-prepareHeroParticles();
+addEventListener("resize", () => liveStoryMap?.resize());
+function positionOpeningPhoto() {
+  if (!story || storyAutoStarted) return;
+  const scene = story.querySelector(".story-scene").getBoundingClientRect();
+  const copy = story.querySelector(".hero-sub").getBoundingClientRect();
+  const photo = story.querySelector(".source-frame");
+  const height = parseFloat(getComputedStyle(photo).width) / 1.58;
+  // Lay out against the actual text, including loaded fonts, instead of a fixed
+  // viewport percentage that overlaps copy on short phones.
+  openingPhotoTop = copy.bottom - scene.top + 24 + height / 2;
+  applyStoryState(0, 0);
+}
+addEventListener("resize", positionOpeningPhoto);
 if (sourceImage?.complete) prepareSourceParticles();
 else sourceImage?.addEventListener("load", prepareSourceParticles, { once: true });
-initialiseLiveStoryMap();
+story?.classList.add("story-managed");
+positionOpeningPhoto();
+document.fonts?.ready.then(positionOpeningPhoto);
+if (storyStart) storyStart.firstChild.textContent = compactStory.matches ? "Swipe up to explore " : "Scroll to explore ";
+if (reducedMotion || (location.hash && !["#top", "#search-story"].includes(location.hash))) skipStory();
 updateScrollScene();
-requestAnimationFrame(animateStoryGlobe);
 
 const observer = new IntersectionObserver((entries) => {
   entries.forEach((entry) => {
