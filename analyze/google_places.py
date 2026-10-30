@@ -108,7 +108,8 @@ async def _search_one(context, query: str, mind: dict) -> list[dict]:
                 "osm_id": f"g-{lat:.6f}-{lon:.6f}", "importance": 0.55,
                 "query_strength": _query_strength(query, mind),
             })
-    except Exception:
+    except Exception as exc:
+        print(f"Google Maps query failed: {type(exc).__name__}: {exc}")
         return []
     finally:
         await page.close()
@@ -122,7 +123,10 @@ async def google_place_candidates(mind: dict) -> list[dict]:
         return []
     try:
         from playwright.async_api import async_playwright
-    except Exception:
+    except Exception as exc:
+        # Make missing browser libraries visible in production instead of
+        # silently degrading to an empty shortlist.
+        print(f"Google Maps candidate lookup unavailable: {type(exc).__name__}: {exc}")
         return []
 
     hits, seen = [], set()
