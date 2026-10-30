@@ -73,15 +73,25 @@ def pick_city(visual: dict, ocr: dict) -> str | None:
 def detect_brands(visual: dict, ocr: dict) -> list[dict]:
     agreed = [a.get("vision") or "" for a in ocr.get("vision_agreements") or []]
     confident = list(ocr.get("vision_businesses_confident") or [])
+    # RapidOCR can be unavailable on small production instances. A high-
+    # confidence business transcription from the vision model is sufficient
+    # to create a *branch shortlist* (never an exact-location certainty).
+    visual_business_reads = [
+        str(row.get("text") or "").strip()
+        for row in visual.get("textReads") or []
+        if float(row.get("confidence") or 0.0) >= 0.90
+        and str(row.get("kind") or "").lower() in {"business", "brand", "shop", "store"}
+    ]
     blob = _blob(
         ocr.get("text"),
         agreed,
         confident,
+        visual_business_reads,
     )
     found = []
     for b in BRAND_PATTERNS:
-        # Accept exact or mildly damaged OCR (for example KAYAN → KALYAN),
-        # but never a vision-only brand reading.
+        # Accept exact or mildly damaged OCR (for example KAYAN → KALYAN), or
+        # an explicitly transcribed high-confidence business sign.
         target = b["id"]
         tokens = re.findall(r"[a-z0-9]+", blob)
         fuzzy = any(__import__("difflib").SequenceMatcher(None, t, target).ratio() >= 0.82 for t in tokens)

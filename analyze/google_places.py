@@ -160,13 +160,22 @@ async def google_place_candidates(mind: dict) -> list[dict]:
             if primary_query:
                 ordered_groups.append([primary_query])
             ordered_groups.append([q for q in queries if q != primary_query][:5])
-            for query_group in ordered_groups:
+            for group_index, query_group in enumerate(ordered_groups):
                 if not query_group:
                     continue
-                batches = await asyncio.gather(
-                    *(_search_one(context, query, mind) for query in query_group),
-                    return_exceptions=True,
-                )
+                if group_index == 0:
+                    batches = await asyncio.gather(
+                        *(_search_one(context, query, mind) for query in query_group),
+                        return_exceptions=True,
+                    )
+                else:
+                    jobs = [asyncio.create_task(_search_one(context, query, mind)) for query in query_group]
+                    done, pending = await asyncio.wait(jobs, timeout=6.5)
+                    batches = [job.result() for job in done if not job.cancelled() and job.exception() is None]
+                    for job in pending:
+                        job.cancel()
+                    if pending:
+                        await asyncio.gather(*pending, return_exceptions=True)
                 for batch in batches:
                     if isinstance(batch, list):
                         for hit in batch:
@@ -175,7 +184,8 @@ async def google_place_candidates(mind: dict) -> list[dict]:
                                 seen.add(key)
                                 hits.append(hit)
             await browser.close()
-    except Exception:
+    except Exception as exc:
+        print(f"Google Maps candidate lookup failed: {type(exc).__name__}: {exc}", flush=True)
         return []
     preferred = [b.get("label") for b in mind.get("brands") or [] if b.get("label")]
     preferred.extend(mind.get("search_names") or [])
