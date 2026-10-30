@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import re
 from collections import Counter
 from urllib.parse import quote_plus
 
@@ -231,7 +232,13 @@ def rank(
             score -= 16
         if reverse_guesses and any(g.lower()[:12] in name_l for g in reverse_guesses if len(g) > 8):
             score += 12
-        if is_chain:
+        cluster_names = {
+            re.sub(r"[^a-z0-9]+", " ", str(value).lower()).strip()
+            for value in [h.get("name"), *(h.get("nearby_names") or [])]
+            if value
+        }
+        corroborated_cluster = len(cluster_names) >= 2 and int(h.get("support_count") or 1) >= 2
+        if is_chain and not corroborated_cluster:
             score -= 20
         # Second clue: another named thing nearby, or a flyover if the photo mentions one
         partner = None
@@ -262,6 +269,8 @@ def rank(
         weak_google = h.get("source") == "google-maps" and query_strength < 0.7 and not nearby_queries
         if nearby_queries:
             score += min(24, 9 * len(nearby_queries))
+        if corroborated_cluster:
+            score += 12
         if weak_google:
             # A chain name or city-wide Google search is useful for making a
             # shortlist, but cannot resolve one branch by itself.
@@ -270,7 +279,7 @@ def rank(
             score += 10
         # Two independently searched places within walking distance are much
         # stronger than a chain-name match. Preserve that separation in score.
-        score = max(20, min(96 if partner else 86, score))
+        score = max(20, min(96 if (partner or corroborated_cluster) else 86, score))
         why = [f"Place search for “{h.get('query') or h.get('name')}” via OpenStreetMap."]
         matched_queries = h.get("matched_queries") or []
         if len(matched_queries) > 1:
@@ -308,9 +317,12 @@ def rank(
         else:
             tier, radius = "block", 220 if h.get("source") == "nominatim" else 180
             why.append("This is a candidate centroid, not a verified camera position.")
-        if is_chain:
+        if is_chain and not corroborated_cluster:
             tier, radius = "city", max(radius, 1000)
             why.append("This name has multiple distant branches; city/branch evidence is still missing.")
+        elif corroborated_cluster:
+            tier, radius = "block", min(radius, 150)
+            why.append("Two independently named storefronts resolve to this same block, separating it from other chain branches.")
         if weak_google:
             tier, radius = "city", max(radius, 1200)
             why.append("This result came from a broad search and needs a road, phone number, or nearby second place to verify the branch.")

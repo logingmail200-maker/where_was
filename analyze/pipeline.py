@@ -185,7 +185,7 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
             google_task = asyncio.create_task(asyncio.sleep(0, result=[]))
             hunt_task = asyncio.create_task(search_places([city_hint], None, max_queries=1) if city_hint else asyncio.sleep(0, result=[]))
         else:
-            google_task = asyncio.create_task(asyncio.wait_for(bounded_google_place_candidates(mind), timeout=8.0))
+            google_task = asyncio.create_task(asyncio.wait_for(bounded_google_place_candidates(mind), timeout=11.5))
             hunt_task = asyncio.create_task(asyncio.wait_for(hunt(mind, gps), timeout=8.0))
         gathered = await asyncio.gather(
             hunt_task,
@@ -215,8 +215,8 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
             bbox = bbox_around(nominatim[0]["lat"], nominatim[0]["lon"], 25)
         if queries and bbox and not scene.get("hits"):
             try:
-                overpass = await overpass_named(queries[:2], bbox)
-            except Exception:
+                overpass = await asyncio.wait_for(overpass_named(queries[:2], bbox), timeout=1.2)
+            except (asyncio.TimeoutError, Exception):
                 overpass = []
 
         # Pair across all candidate sources; the second visible sign may come
@@ -228,8 +228,8 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
             seed_pts = [{"lat": gps["lat"], "lon": gps["lon"], "name": "exif"}] + seed_pts
         if seed_pts and infra and not elevated:
             try:
-                elevated = await nearby_elevated(seed_pts)
-            except Exception:
+                elevated = await asyncio.wait_for(nearby_elevated(seed_pts), timeout=1.2)
+            except (asyncio.TimeoutError, Exception):
                 elevated = []
 
         yield _event(

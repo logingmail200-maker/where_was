@@ -50,6 +50,71 @@ def _queries(mind: dict) -> list[str]:
     return clean
 
 
+async def _search_one(context, query: str, mind: dict) -> list[dict]:
+    """Resolve one Maps query on its own page so clue searches can overlap."""
+    page = await context.new_page()
+    page.set_default_timeout(4200)
+    hits: list[dict] = []
+    try:
+        url = f"https://www.google.com/maps/search/{quote_plus(query)}?hl=en"
+        await page.goto(url, wait_until="domcontentloaded", timeout=6500)
+        # Maps renders the first result quickly; a short bounded pause is much
+        # faster than serially waiting on every clue query.
+        await page.wait_for_timeout(650)
+        direct_match = COORDS.search(page.url) or AT_COORDS.search(page.url)
+        if direct_match:
+            lat, lon = float(direct_match.group(1)), float(direct_match.group(2))
+            title = (await page.title()).replace(" - Google Maps", "").strip()
+            heading = page.locator("h1").first
+            if await heading.count():
+                try:
+                    title = (await heading.inner_text()).strip() or title
+                except Exception:
+                    pass
+            address = ""
+            address_node = page.locator('[data-item-id="address"], button[data-item-id*="address"]').first
+            if await address_node.count():
+                try:
+                    address = (await address_node.get_attribute("aria-label") or await address_node.inner_text()).strip()
+                except Exception:
+                    pass
+            if title and title.lower() not in {"google maps", "maps"}:
+                hits.append({
+                    "source": "google-maps", "query": query, "name": title,
+                    "address": address or None, "lat": lat, "lon": lon,
+                    "osm_id": f"g-{lat:.6f}-{lon:.6f}", "importance": 0.62,
+                    "query_strength": _query_strength(query, mind),
+                })
+        links = page.locator('a[href*="/maps/place/"]')
+        for index in range(min(await links.count(), 5)):
+            link = links.nth(index)
+            href = await link.get_attribute("href") or ""
+            match = COORDS.search(href)
+            if not match:
+                continue
+            lat, lon = float(match.group(1)), float(match.group(2))
+            name = (await link.get_attribute("aria-label") or await link.inner_text() or "Place").strip()
+            article = link.locator("xpath=ancestor::div[@role='article'][1]")
+            address = ""
+            if await article.count():
+                address = " · ".join((await article.first.inner_text()).splitlines()[1:5])[:300]
+            query_phones = re.findall(r"\b\d{10}\b", re.sub(r"[^\d ]", " ", query))
+            result_digits = re.sub(r"\D", "", f"{name} {address}")
+            if query_phones and not any(phone in result_digits for phone in query_phones):
+                continue
+            hits.append({
+                "source": "google-maps", "query": query, "name": name,
+                "address": address or None, "lat": lat, "lon": lon,
+                "osm_id": f"g-{lat:.6f}-{lon:.6f}", "importance": 0.55,
+                "query_strength": _query_strength(query, mind),
+            })
+    except Exception:
+        return []
+    finally:
+        await page.close()
+    return hits
+
+
 async def google_place_candidates(mind: dict) -> list[dict]:
     """Optional browser fallback for POIs missing from the open map index."""
     queries = _queries(mind)
@@ -76,84 +141,35 @@ async def google_place_candidates(mind: dict) -> list[dict]:
                 ),
                 viewport={"width": 1180, "height": 760},
             )
-            page = await context.new_page()
-            page.set_default_timeout(6000)
-            for query in queries:
-                url = f"https://www.google.com/maps/search/{quote_plus(query)}?hl=en"
-                try:
-                    await page.goto(url, wait_until="domcontentloaded", timeout=9000)
-                    await page.wait_for_timeout(1200)
-                    direct_url = page.url
-                    direct_match = COORDS.search(direct_url) or AT_COORDS.search(direct_url)
-                    if direct_match:
-                        lat, lon = float(direct_match.group(1)), float(direct_match.group(2))
-                        title = (await page.title()).replace(" - Google Maps", "").strip()
-                        heading = page.locator("h1").first
-                        if await heading.count():
-                            try:
-                                title = (await heading.inner_text()).strip() or title
-                            except Exception:
-                                pass
-                        address = ""
-                        address_node = page.locator('[data-item-id="address"], button[data-item-id*="address"]').first
-                        if await address_node.count():
-                            try:
-                                address = (await address_node.get_attribute("aria-label") or await address_node.inner_text()).strip()
-                            except Exception:
-                                pass
-                        key = (round(lat, 6), round(lon, 6), query.lower())
-                        if key not in seen and title and title.lower() not in {"google maps", "maps"}:
-                            seen.add(key)
-                            hits.append(
-                                {
-                                    "source": "google-maps",
-                                    "query": query,
-                                    "name": title,
-                                    "address": address or None,
-                                    "lat": lat,
-                                    "lon": lon,
-                                    "osm_id": f"g-{lat:.6f}-{lon:.6f}",
-                                    "importance": 0.62,
-                                    "query_strength": _query_strength(query, mind),
-                                }
-                            )
-                    links = page.locator('a[href*="/maps/place/"]')
-                    count = min(await links.count(), 5)
-                    for index in range(count):
-                        link = links.nth(index)
-                        href = await link.get_attribute("href") or ""
-                        match = COORDS.search(href)
-                        if not match:
-                            continue
-                        lat, lon = float(match.group(1)), float(match.group(2))
-                        key = (round(lat, 6), round(lon, 6), query.lower())
-                        if key in seen:
-                            continue
-                        seen.add(key)
-                        name = (await link.get_attribute("aria-label") or await link.inner_text() or "Place").strip()
-                        article = link.locator("xpath=ancestor::div[@role='article'][1]")
-                        address = ""
-                        if await article.count():
-                            address = " · ".join((await article.first.inner_text()).splitlines()[1:5])[:300]
-                        query_phones = re.findall(r"\b\d{10}\b", re.sub(r"[^\d ]", " ", query))
-                        result_digits = re.sub(r"\D", "", f"{name} {address}")
-                        if query_phones and not any(phone in result_digits for phone in query_phones):
-                            continue
-                        hits.append(
-                            {
-                                "source": "google-maps",
-                                "query": query,
-                                "name": name,
-                                "address": address or None,
-                                "lat": lat,
-                                "lon": lon,
-                                "osm_id": f"g-{lat:.6f}-{lon:.6f}",
-                                "importance": 0.55,
-                                "query_strength": _query_strength(query, mind),
-                            }
-                        )
-                except Exception:
+            # Run the strongest clue combinations concurrently. Six pages are
+            # still a small, bounded lookup and cut the resolver from ~19 s to
+            # the duration of the slowest query.
+            # Resolve the primary visible business alone first. Maps can drop
+            # this high-value query when several tabs start simultaneously.
+            brands = [b.get("label") for b in mind.get("brands") or [] if b.get("label")]
+            city = str(mind.get("city") or "").strip()
+            primary_query = next(
+                (q for q in queries if brands and q.lower() == f"{brands[0]} {city}".strip().lower()),
+                None,
+            )
+            ordered_groups = []
+            if primary_query:
+                ordered_groups.append([primary_query])
+            ordered_groups.append([q for q in queries if q != primary_query][:5])
+            for query_group in ordered_groups:
+                if not query_group:
                     continue
+                batches = await asyncio.gather(
+                    *(_search_one(context, query, mind) for query in query_group),
+                    return_exceptions=True,
+                )
+                for batch in batches:
+                    if isinstance(batch, list):
+                        for hit in batch:
+                            key = (round(hit["lat"], 6), round(hit["lon"], 6), str(hit.get("query") or "").lower())
+                            if key not in seen:
+                                seen.add(key)
+                                hits.append(hit)
             await browser.close()
     except Exception:
         return []

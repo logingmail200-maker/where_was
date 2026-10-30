@@ -49,6 +49,11 @@ def pick_city(visual: dict, ocr: dict) -> str | None:
         visual.get("explanation"),
         visual.get("regionHints"),
         visual.get("searchableNames"),
+        # These strings are still only routing hints; candidates must resolve
+        # to real map entities. They often contain the city inferred from a
+        # supported combination such as Kannada + Namma Metro + two brands.
+        visual.get("searchQueries"),
+        [row.get("region") for row in visual.get("landmarkHypotheses") or []],
         [row.get("text") for row in visual.get("textReads") or [] if float(row.get("confidence") or 0) >= 0.72],
         " ".join(f"{c.get('kind')} {c.get('observation')} {c.get('geographicImplication')}" for c in visual.get("clues") or []),
     )

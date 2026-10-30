@@ -12,7 +12,9 @@ MODELS = tuple(
     x.strip()
     for x in os.environ.get(
         "GEMINI_MODELS",
-        "gemini-3.8-flash,gemini-3.5-flash-lite,gemini-3.6-flash,gemini-2.5-flash-lite,gemini-3-flash-preview",
+        # Stable public models first.  Invalid/preview names ahead of these can
+        # consume the entire request budget in 404/retry loops.
+        "gemini-3.5-flash-lite,gemini-3.8-flash,gemini-3.5-flash,gemini-3.6-flash",
     ).split(",")
     if x.strip()
 )
