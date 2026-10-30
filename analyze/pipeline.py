@@ -192,7 +192,9 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
                 brands = [b.get("label") for b in mind.get("brands") or [] if b.get("label")]
                 city = mind.get("city")
                 open_queries = [f"{brands[0]} {city}" if city else brands[0]] if brands else (mind.get("model_queries") or [])[:1]
-                browser_job = asyncio.create_task(bounded_google_place_candidates(mind))
+                browser_job = asyncio.create_task(
+                    asyncio.wait_for(bounded_google_place_candidates(mind), timeout=8.0)
+                )
                 open_job = asyncio.create_task(search_places(open_queries, city, max_queries=1)) if open_queries else asyncio.create_task(asyncio.sleep(0, result=[]))
                 browser_result, open_result = await asyncio.gather(browser_job, open_job, return_exceptions=True)
                 precise = browser_result if isinstance(browser_result, list) else []
