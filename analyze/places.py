@@ -7,6 +7,7 @@ import httpx
 
 UA = "WhereWas/1.0 (local photo geolocation; https://github.com/local/wherewas)"
 NOMINATIM = "https://nominatim.openstreetmap.org"
+PHOTON = "https://photon.komoot.io/api/"
 OVERPASS = [
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
@@ -35,7 +36,12 @@ async def reverse_geocode(lat: float, lon: float) -> dict | None:
 
 
 async def search_places(queries: list[str], region_hint: str | None = None, max_queries: int = 6) -> list[dict]:
-    """Nominatim search — few queries, 1.1s apart (usage policy)."""
+    """Search OpenStreetMap names with a policy-safe Nominatim/Photon fallback.
+
+    Some cloud-provider IP ranges are throttled by one public geocoder. Photon
+    uses the same open OSM data and prevents a completed analysis from losing
+    its shortlist solely because Nominatim is unavailable.
+    """
     out, seen = [], set()
     uniq = []
     for q in queries:
@@ -80,6 +86,56 @@ async def search_places(queries: list[str], region_hint: str | None = None, max_
                     )
             except Exception:
                 continue
+        if not out:
+            for q in uniq:
+                qq = f"{q} {region_hint}" if region_hint and region_hint.lower() not in q.lower() else q
+                try:
+                    r = await client.get(PHOTON, params={"q": qq, "limit": 5, "lang": "en"})
+                    if r.status_code != 200:
+                        continue
+                    for feature in r.json().get("features") or []:
+                        props = feature.get("properties") or {}
+                        coords = (feature.get("geometry") or {}).get("coordinates") or []
+                        if len(coords) < 2:
+                            continue
+                        lon, lat = float(coords[0]), float(coords[1])
+                        osm_id = props.get("osm_id")
+                        key = (props.get("osm_type"), osm_id, round(lat, 6), round(lon, 6))
+                        if key in seen:
+                            continue
+                        seen.add(key)
+                        address = ", ".join(
+                            dict.fromkeys(
+                                str(value).strip()
+                                for value in (
+                                    props.get("street"),
+                                    props.get("district"),
+                                    props.get("city"),
+                                    props.get("state"),
+                                    props.get("country"),
+                                )
+                                if value
+                            )
+                        )
+                        out.append(
+                            {
+                                "source": "photon",
+                                "query": q,
+                                "name": props.get("name") or props.get("street") or q,
+                                "address": address or None,
+                                "lat": lat,
+                                "lon": lon,
+                                "osm_type": props.get("osm_type"),
+                                "osm_id": osm_id,
+                                "category": props.get("osm_value") or props.get("type") or "",
+                                "importance": props.get("importance") or 0,
+                                "boundingbox": props.get("extent") or [],
+                            }
+                        )
+                except Exception:
+                    continue
+                if out:
+                    break
     return out
 
 
