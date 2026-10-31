@@ -184,8 +184,10 @@ async def google_place_candidates(mind: dict) -> list[dict]:
                                 seen.add(key)
                                 hits.append(hit)
             await browser.close()
-    except Exception as exc:
-        print(f"Google Maps candidate lookup failed: {type(exc).__name__}: {exc}", flush=True)
+    except Exception:
+        # Maps is an optional precision source. OpenStreetMap/Photon results
+        # remain available and the request must never fail because Chromium is
+        # unavailable on a constrained host.
         return []
     preferred = [b.get("label") for b in mind.get("brands") or [] if b.get("label")]
     preferred.extend(mind.get("search_names") or [])

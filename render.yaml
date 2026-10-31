@@ -3,12 +3,12 @@ services:
     name: wherewas
     runtime: python
     plan: free
-    buildCommand: pip install -r requirements.txt && PLAYWRIGHT_BROWSERS_PATH=0 python -m playwright install chromium
+    buildCommand: pip install -r requirements.txt && PLAYWRIGHT_BROWSERS_PATH=/opt/render/project/src/.pw-browsers python -m playwright install chromium
     startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/health
     envVars:
       - key: PLAYWRIGHT_BROWSERS_PATH
-        value: "0"
+        value: "/opt/render/project/src/.pw-browsers"
       - key: GEMINI_API_KEY
         sync: false
       - key: MAPILLARY_ACCESS_TOKEN
