@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/maplibre-gl.css">
   <link rel="stylesheet" href="/marketing.css?v=28">
-  <link rel="stylesheet" href="/marketing-update.css?v=1">
+  <link rel="stylesheet" href="/marketing-update.css?v=1"><link rel="stylesheet" href="/proof.css?v=1">
 </head>
 <body>
   <div class="noise" aria-hidden="true"></div>
@@ -24,79 +24,16 @@
   </header>
 
   <main id="top">
-    <section class="geo-story" id="search-story" aria-label="Illustrative photo-to-place search">
-      <div class="geo-pin">
-        <button class="story-skip" type="button" hidden>Skip animation <span aria-hidden="true">↗</span></button>
-        <button class="story-start" type="button">Scroll to explore <span aria-hidden="true">↓</span></button>
-        <p class="sr-only story-status" role="status" aria-live="polite"></p>
-        <section class="hero" id="hero">
-          <canvas class="hero-pixels" id="hero-pixels" aria-hidden="true"></canvas>
-          <div class="hero-copy">
-            <p class="eyebrow">Visual location intelligence</p>
-            <h1>Find the place<br>inside the picture.</h1>
-            <p class="hero-sub">Turn an ordinary scene into a ranked, explorable location match—without needing embedded coordinates.</p>
-          </div>
-        </section>
-        <div class="story-scene">
-          <div id="story-live-map" class="story-live-map" aria-hidden="true"></div>
-          <div class="street-view-panel" aria-hidden="true">
-            <iframe class="story-street-view" title="Interactive 360 degree Street View of Sheikh Mohammed bin Rashid Boulevard, Dubai" tabindex="-1" allowfullscreen referrerpolicy="no-referrer-when-downgrade" data-src="https://maps.google.com/maps?q=25.1912354,55.276428&amp;layer=c&amp;cbll=25.1912354,55.276428&amp;cbp=11,288.53,0,0,0&amp;output=svembed"></iframe>
-            <p class="street-view-status" role="status">Loading street imagery…</p>
-            <div class="street-view-control"><button type="button" aria-pressed="false">Explore 360°</button></div>
-          </div>
-          <div class="pixel-matrix" aria-hidden="true"></div>
-          <svg class="road-trace" viewBox="0 0 1200 700" preserveAspectRatio="none" aria-hidden="true">
-            <path class="road-trace-glow" pathLength="1" d="M354 535 C445 502 515 455 571 412 C629 367 707 332 846 286"/>
-            <path class="road-trace-core" pathLength="1" d="M354 535 C445 502 515 455 571 412 C629 367 707 332 846 286"/>
-          </svg>
-          <canvas id="source-pixels" class="source-pixels" aria-hidden="true"></canvas>
-          <canvas id="story-globe" aria-hidden="true"></canvas>
-          <canvas id="story-map" aria-hidden="true"></canvas>
-          <div class="map-grid" aria-hidden="true"></div>
-          <div class="target-chip"><i></i><span>Street targeting</span><b>Downtown Dubai</b></div>
-
-          <div class="source-ambient" aria-hidden="true"></div>
-          <figure class="source-frame">
-            <img src="/assets/dubai-downtown-source.png" alt="Downtown Dubai street scene with Burj Khalifa, Emaar branding and the Dubai Trolley">
-            <div class="scan-grid" aria-hidden="true"></div>
-            <span class="clue clue-emaar"><i></i><b>EMAAR</b><small>BRAND SIGNAL</small></span>
-            <span class="clue clue-downtown"><i></i><b>DOWNTOWN</b><small>DISTRICT TEXT</small></span>
-            <span class="clue clue-burj"><i></i><b>BURJ KHALIFA</b><small>LANDMARK</small></span>
-            <span class="clue clue-trolley"><i></i><b>DUBAI TROLLEY</b><small>TRANSIT MARKER</small></span>
-            <span class="clue clue-road"><i></i><b>BOULEVARD FORM</b><small>ROAD GEOMETRY</small></span>
-            <figcaption>Source image · no embedded coordinates</figcaption>
-          </figure>
-
-          <div class="map-city-label">DOWNTOWN DUBAI <span>25.19°N · 55.27°E</span></div>
-          <div class="candidate-layer" aria-hidden="true">
-            <i style="--x:43%;--y:54%">1</i><i style="--x:51%;--y:48%">2</i><i style="--x:58%;--y:59%">3</i><i style="--x:37%;--y:63%">4</i><i style="--x:64%;--y:43%">5</i><i style="--x:47%;--y:68%">6</i><i style="--x:69%;--y:61%">7</i><i style="--x:33%;--y:46%">8</i><i style="--x:55%;--y:37%">9</i><i style="--x:73%;--y:51%">10</i>
-          </div>
-          <div class="place-lock" aria-hidden="true"><span>01</span><i></i></div>
-          <div class="coordinate-reveal" aria-hidden="true">
-            <small>EXACT POSITION</small>
-            <div class="coord-lat"><span>LATITUDE</span><b>25.1912° N</b></div>
-            <div class="coord-lon"><span>LONGITUDE</span><b>55.2764° E</b></div>
-            <p>Sheikh Mohammed bin Rashid Boulevard</p>
-          </div>
-          <div class="final-place">
-            <small>ILLUSTRATIVE RESULT · DUBAI</small>
-            <h3>Sheikh Mohammed bin Rashid Boulevard</h3>
-            <p>Downtown Dubai · United Arab Emirates</p>
-            <code>25.1912° N · 55.2764° E</code>
-            <b><i></i> Street context available</b>
-          </div>
-        </div>
-
-        <ol class="story-steps">
-          <li class="active" data-step="0"><small>01 / SOURCE</small><h2>Start with a single photograph.</h2><p>No metadata. No coordinates. Only what is visible.</p></li>
-          <li data-step="1"><small>02 / VISUAL SIGNALS</small><h2>The scene begins to describe itself.</h2><p>Emaar, Downtown, Burj Khalifa, the boulevard and Dubai Trolley converge.</p></li>
-          <li data-step="2"><small>03 / IMAGE TRANSFER</small><h2>Every pixel enters the geographic search.</h2><p>The full frame becomes a visual signal stream while the world rotates toward the UAE.</p></li>
-          <li data-step="3"><small>04 / UAE LOCK</small><h2>The globe settles over the Emirates.</h2><p>The image transfer completes as the strongest regional match moves into view.</p></li>
-          <li data-step="7"><small>05 / RESOLVED</small><h2>From one image to the right street.</h2><p>Explore the panorama when needed; page scrolling stays uninterrupted.</p></li>
-        </ol>
-        <p class="story-note">Illustrative search sequence · candidate ranking shown for product demonstration</p>
+    <section class="proof-hero" id="hero">
+      <div class="proof-copy"><p class="eyebrow">VISUAL PLACE SEARCH</p><h1>Find the place.<br><em>See the evidence.</em></h1><p class="proof-description">Turn the details in a photograph into places you can investigate. Compare candidates, inspect reference imagery and see what supports the match.</p><div class="proof-actions"><a class="primary-btn" href="/try">Upload a photo <span>↗</span></a><a class="proof-secondary" href="#proof-demo">Explore the workflow ↓</a></div><p class="proof-caption">Streets, buildings and landscapes. A shortlist with a radius, not an unexplained pin.</p></div>
+      <div class="proof-demo" id="proof-demo" data-phase="0">
+        <header><span>WHEREWAS / HOW IT WORKS</span><button type="button" id="demo-play" aria-label="Pause demonstration">Pause Ⅱ</button></header>
+        <div class="proof-stage"><figure class="proof-source"><img src="/assets/field-bengaluru.jpg" alt="Licensed Bengaluru street example" fetchpriority="high"><figcaption>01 / PLACE PHOTO</figcaption><div class="proof-scan" aria-hidden="true"></div><span class="proof-clue">Read the fixed details</span></figure><div class="proof-evidence"><span class="eyebrow">02 / SUPPORTING CLUES</span><h2>A scene becomes<br>a search.</h2><ul><li>Visible shop names</li><li>Road layout</li><li>Building structure</li></ul><div class="proof-candidate"><small>03 / CANDIDATE REVIEW</small><b>Bengaluru, India</b><p>Compare the reference. Check the radius. Review the evidence.</p><a href="/try">Search your own image ↗</a></div></div></div>
+        <div class="proof-timeline" aria-label="Demonstration steps"><button data-phase="0" class="active">01 Photo</button><button data-phase="1">02 Clues</button><button data-phase="2">03 Review</button></div>
+        <footer>Illustrative workflow · not a live search result. <a href="https://www.mapillary.com/app/?pKey=2850385311894788">Photo: ranjithjoy / Mapillary</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a></footer>
       </div>
     </section>
+    <div class="proof-strip section"><span>Read the scene</span><i>→</i><span>Search candidate areas</span><i>→</i><span>Compare reference imagery</span><i>→</i><span>Review the evidence</span></div>
 
     <section class="enterprise section" id="platform">
       <div class="section-intro reveal">
@@ -140,7 +77,7 @@
     </section>
 
     <section class="why-wherewas section" id="why-wherewas">
-      <div class="why-intro reveal"><p class="eyebrow">The WhereWas advantage</p><h2>Built for one question.<br>Where was this taken?</h2><p>Lens helps explore visual matches. Gemini helps interpret a scene. WhereWas focuses that journey on location: compare ranked places, inspect the clues and review street imagery together, in one workspace.</p></div>
+      <div class="why-intro reveal"><p class="eyebrow">The WhereWas advantage</p><h2>Built for one question.<br>Where was this taken?</h2><p>A location answer should come with something you can check. Bring the source photo, ranked places, supporting clues and available reference imagery into one workspace.</p></div>
       <div class="comparison-grid reveal">
         <article><small>01 / LOCATION FIRST</small><h3>Places you can compare.</h3><p>Move from an image to a ranked location shortlist. Candidate coordinates and an estimated radius give you a concrete area to investigate on the map.</p></article>
         <article><small>02 / VISIBLE REASONING</small><h3>See what supports the match.</h3><p>Review the text, road layout and scene clues behind a candidate. Compare the evidence and confidence before deciding which location deserves a closer look.</p></article>
@@ -159,11 +96,10 @@
   </main>
 
   <footer>
-    <div class="footer-main"><div class="footer-brand"><a class="brand" href="#top"><img class="brand-logo" src="/assets/wherewas-logo.svg?v=2" alt=""><b>WhereWas</b></a><p>Pixels to place.</p></div><div class="newsletter"><p>Product notes</p><span>Occasional updates on visual search and new capabilities.</span><form><label class="sr-only" for="email">Email address</label><input id="email" type="email" placeholder="name@email.com"><button type="submit">Subscribe</button></form></div></div>
+    <div class="footer-main"><div class="footer-brand"><a class="brand" href="#top"><img class="brand-logo" src="/assets/wherewas-logo.svg?v=2" alt=""><b>WhereWas</b></a><p>Pixels to place.</p></div><div class="newsletter"><p>Explore with evidence.</p><span>Start with a place photo. Keep the uncertainty visible.</span><a href="/try">Open WhereWas ↗</a></div></div>
     <div class="footer-bottom"><span>Credits — Smarty · © 2026 WhereWas</span><div><a href="#platform">Platform</a><a href="#method">Method</a><a href="/pricing">Pricing</a></div></div>
   </footer>
 
-  <script src="/maplibre-gl.js"></script>
-  <script src="/marketing.js?v=29"></script>
+  <script src="/proof.js?v=1"></script>
 </body>
 </html>

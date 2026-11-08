@@ -40,6 +40,20 @@ def maps_url(lat: float, lon: float, label: str | None = None) -> str:
     return f"https://www.google.com/maps/search/?api=1&query={quote_plus(query)}"
 
 
+def select_primary(candidates: list[dict]) -> dict | None:
+    """Only elevate a candidate that is strong and separated from alternatives."""
+    if not candidates:
+        return None
+    top = candidates[0]
+    if float(top.get("score") or 0) < 65 or top.get("tier") in {"city", "region"}:
+        return None
+    if len(candidates) > 1 and top.get("source") not in {"exif", "ocr-coords"}:
+        margin = float(top.get("score") or 0) - float(candidates[1].get("score") or 0)
+        if margin < 8:
+            return None
+    return top
+
+
 def _city(addr: str | None) -> str:
     if not addr:
         return ""
@@ -125,6 +139,7 @@ def rank(
                 "This is a ranked reference-frame match, not a certain street address.",
             ],
             source="retrieval",
+            visual_verification="geometric-support" if verified else "unverified",
             reference_image=item.get("reference_image"),
             reference_attribution=item.get("attribution"),
         )
@@ -373,7 +388,7 @@ def rank(
         c["maps"] = maps_url(c["lat"], c["lon"], exact_label)
         c["street_view"] = street_view_url(c["lat"], c["lon"])
         kept.append(c)
-        if len(kept) >= 8:
+        if len(kept) >= 10:
             break
 
     # A low-scoring branch suggestion is not a resolved location. This prevents

@@ -132,7 +132,7 @@ async def attach_free_street_sources(candidates: list[dict]) -> None:
     await asyncio.gather(*(enrich(c) for c in candidates[:4]))
 
 
-def _orb_check(query_path, image_bytes: bytes) -> tuple[int, float]:
+def _orb_check(query_path, image_bytes: bytes) -> tuple[int, float, float, int]:
     """Compare an upload with one temporary reference frame entirely in memory."""
     import cv2
     import numpy as np
@@ -140,21 +140,29 @@ def _orb_check(query_path, image_bytes: bytes) -> tuple[int, float]:
     query = cv2.imread(str(query_path), cv2.IMREAD_GRAYSCALE)
     reference = cv2.imdecode(np.frombuffer(image_bytes, dtype=np.uint8), cv2.IMREAD_GRAYSCALE)
     if query is None or reference is None:
-        return 0, 0.0
+        return 0, 0.0, 0.0, 0
     orb = cv2.ORB_create(nfeatures=1400)
     kp_a, desc_a = orb.detectAndCompute(query, None)
     kp_b, desc_b = orb.detectAndCompute(reference, None)
     if desc_a is None or desc_b is None or len(kp_a) < 8 or len(kp_b) < 8:
-        return 0, 0.0
+        return 0, 0.0, 0.0, 0
     raw = cv2.BFMatcher(cv2.NORM_HAMMING).knnMatch(desc_a, desc_b, k=2)
-    good = [first for first, second in raw if first.distance < 0.72 * second.distance]
+    good = [pair[0] for pair in raw if len(pair) == 2 and pair[0].distance < 0.72 * pair[1].distance]
     if len(good) < 8:
-        return len(good), 0.0
+        return len(good), 0.0, 0.0, 0
     points_a = np.float32([kp_a[m.queryIdx].pt for m in good])
     points_b = np.float32([kp_b[m.trainIdx].pt for m in good])
     _, mask = cv2.findHomography(points_a, points_b, cv2.RANSAC, 5.0)
     inliers = int(mask.sum()) if mask is not None else 0
-    return inliers, round(inliers / len(good), 3)
+    if mask is None or inliers < 4:
+        return inliers, 0.0, 0.0, 0
+    def support(points, frame):
+        coverage = cv2.contourArea(cv2.convexHull(points)) / (frame.shape[0] * frame.shape[1])
+        cells = {(min(3, int(x / frame.shape[1] * 4)), min(2, int(y / frame.shape[0] * 3))) for x, y in points}
+        return float(coverage), len(cells)
+    ca, ga = support(points_a[mask.ravel() > 0], query)
+    cb, gb = support(points_b[mask.ravel() > 0], reference)
+    return inliers, round(inliers / len(good), 3), min(ca, cb), min(ga, gb)
 
 
 async def verify_shortlist_on_demand(query_path, candidates: list[dict], max_candidates: int = 3) -> None:
@@ -173,8 +181,9 @@ async def verify_shortlist_on_demand(query_path, candidates: list[dict], max_can
             candidate["on_demand_verification"] = {"attempted": True, "frames": 0, "inliers": 0}
             return
         best_inliers, best_ratio, checked = 0, 0.0, 0
+        best_coverage, best_cells, best_frame = 0.0, 0, None
         async with _client() as client:
-            async def check(frame: dict) -> tuple[int, float] | None:
+            async def check(frame: dict) -> tuple[int, float, float, int] | None:
                 try:
                     response = await client.get(frame["thumbnail"])
                     response.raise_for_status()
@@ -182,15 +191,17 @@ async def verify_shortlist_on_demand(query_path, candidates: list[dict], max_can
                 except Exception:
                     return None
             checks = await asyncio.gather(*(check(frame) for frame in frames))
-            for checked_result in checks:
+            for frame, checked_result in zip(frames, checks):
                 if checked_result is None:
                     continue
-                inliers, ratio = checked_result
+                inliers, ratio, coverage, cells = checked_result
                 checked += 1
-                if (inliers, ratio) > (best_inliers, best_ratio):
+                if (coverage >= .03 and cells >= 3, inliers, ratio) > (best_coverage >= .03 and best_cells >= 3, best_inliers, best_ratio):
                     best_inliers, best_ratio = inliers, ratio
+                    best_coverage, best_cells, best_frame = coverage, cells, frame
         candidate["on_demand_verification"] = {
             "attempted": True, "frames": checked, "inliers": best_inliers, "inlier_ratio": best_ratio,
+            "coverage": best_coverage, "grid_cells": best_cells,
             "provider": "mapillary", "attribution": "© Mapillary, CC-BY-SA",
         }
         candidate.setdefault("why", []).append(
@@ -198,7 +209,11 @@ async def verify_shortlist_on_demand(query_path, candidates: list[dict], max_can
         )
         # A successful local feature check can improve a ranked candidate, but
         # it never upgrades it to an asserted exact address.
-        if best_inliers >= 12 and best_ratio >= 0.28:
+        if best_inliers >= 12 and best_ratio >= 0.28 and best_coverage >= .03 and best_cells >= 3:
+            candidate["visual_verification"] = "geometric-support"
+            candidate["reference_image"] = best_frame["thumbnail"]
+            candidate["reference_url"] = "https://www.mapillary.com/app/?pKey=" + best_frame["id"]
+            candidate["reference_attribution"] = best_frame.get("attribution", "Mapillary - CC BY-SA")
             candidate["score"] = min(90, float(candidate.get("score") or 0) + min(16, best_inliers / 2))
             candidate["radius_m"] = min(int(candidate.get("radius_m") or 800), 180)
             candidate["tier"] = "block"

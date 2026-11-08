@@ -5,9 +5,16 @@ import unittest
 from analyze.google_places import _cluster_hits, _queries
 from analyze.ocr_tools import apply_gemini_signs
 from analyze.think import compose
+from analyze.rank import select_primary
 
 
 class EngineCoreTests(unittest.TestCase):
+    def test_primary_requires_separation_after_verification(self):
+        first = {"id": "one", "score": 78, "tier": "block", "source": "retrieval"}
+        second = {"id": "two", "score": 74, "tier": "block", "source": "retrieval"}
+        self.assertIsNone(select_primary([first, second]))
+        self.assertEqual(select_primary([{**first, "score": 84}, second]), {**first, "score": 84})
+
     def test_high_confidence_crop_text_becomes_searchable(self):
         ocr = {"text": "", "lines": [], "names": [], "phones": []}
         visual = {

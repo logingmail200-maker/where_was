@@ -76,7 +76,9 @@ def learning_status() -> dict:
 
 def learned_score(candidate: dict) -> float:
     model = _read_model()
-    if int(model.get("sessions") or 0) < 3:
+    # Visitor confirmations are useful review data, not verified ground truth.
+    # Do not let a few self-reported clicks change production ranking.
+    if model.get("approved") is not True:
         return float(candidate.get("score") or 0)
     features = candidate_features(candidate)
     weights = model.get("weights") or {}
@@ -95,7 +97,7 @@ def record_feedback(analysis_id: str, candidates: list[dict], selected_id: str) 
     ids = {str(c.get("id")) for c in candidates}
     if selected_id not in ids:
         raise ValueError("Selected location is not part of this result")
-    clean = candidates[:8]
+    clean = candidates[:10]
     with LOCK:
         db = _connect()
         try:
@@ -134,5 +136,5 @@ def _train(db: sqlite3.Connection) -> None:
                     weights[key] += rate * ((float(label) - pred) * float(x.get(key, 0.0)) - regularization)
     DATA.mkdir(parents=True, exist_ok=True)
     tmp = MODEL_PATH.with_suffix(".tmp")
-    tmp.write_text(json.dumps({"weights": weights, "sessions": sessions, "examples": len(rows)}, indent=2), encoding="utf-8")
+    tmp.write_text(json.dumps({"weights": weights, "sessions": sessions, "examples": len(rows), "approved": False}, indent=2), encoding="utf-8")
     tmp.replace(MODEL_PATH)

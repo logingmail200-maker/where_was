@@ -4,6 +4,7 @@ let map, selectedFile, previewUrl, lastResult, activeCandidate, activePopup;
 let mapLayers = [];
 let navigationMarker, navigationResults = [], navigationTimer;
 let streetInteractionEnabled = false;
+let activeSearch = null, progressValue = 8;
 
 const MAP_STYLES = {
   dark: "https://tiles.openfreemap.org/styles/dark",
@@ -54,6 +55,11 @@ function esc(value) {
   return String(value || "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
 
+function radiusLabel(value) {
+  const radius = Number(value);
+  return radius > 0 ? (radius >= 1000 ? `${(radius / 1000).toFixed(radius < 10000 ? 1 : 0)} km` : `${Math.round(radius)} m`) : "Unknown";
+}
+
 function chooseImage() {
   $("#upload-panel").hidden = false;
   $("#upload-panel").classList.remove("leaving");
@@ -71,6 +77,7 @@ function toast(message) {
 
 function loadFile(file) {
   if (!file) return;
+  if (activeSearch || lastResult) resetSearch();
   selectedFile = file;
   if (previewUrl) URL.revokeObjectURL(previewUrl);
   previewUrl = URL.createObjectURL(file);
@@ -89,6 +96,9 @@ function loadFile(file) {
 }
 
 function resetSearch() {
+  activeSearch?.abort();
+  activeSearch = null;
+  activeCandidate = lastResult = null;
   document.body.classList.remove("busy", "result-mode");
   $("#result-ui").hidden = true;
   $("#search-card").hidden = true;
@@ -103,6 +113,10 @@ function resetSearch() {
 
 function clearFile() {
   selectedFile = null;
+  resetSearch();
+  if (previewUrl) URL.revokeObjectURL(previewUrl);
+  previewUrl = null;
+  ["#dock-image", "#upload-preview", "#compare-image"].forEach((id) => $(id).removeAttribute("src"));
   $("#file").value = "";
   $("#source-dock").hidden = true;
   $("#upload-empty").hidden = false;
@@ -132,27 +146,50 @@ function drawCandidates(candidates, selectedId, close = false) {
     bounds.push([candidate.lon, candidate.lat]);
   });
   if (!bounds.length) return;
-  if (close || bounds.length === 1) map.flyTo({ center: bounds[0], zoom: close ? 17 : 15, pitch: 58, bearing: -10, duration: 1500 });
+  if (close || bounds.length === 1) map.flyTo({ center: (() => {const c=candidates.find(c=>c.id===selectedId);return c?[c.lon,c.lat]:bounds[0];})(), zoom: close ? 17 : 15, pitch: 58, bearing: -10, duration: 1500 });
   else {
     const area = bounds.reduce((box, point) => box.extend(point), new maplibregl.LngLatBounds(bounds[0], bounds[0]));
-    map.fitBounds(area, { padding: {top:80,bottom:80,left:80,right:340}, maxZoom: 14, duration: 1400 });
+    const compact = window.innerWidth <= 640;
+    const padding = compact
+      ? { top: 64, bottom: Math.round(map.getContainer().clientHeight * 0.45), left: 28, right: 28 }
+      : { top: 80, bottom: 80, left: 80, right: 340 };
+    map.fitBounds(area, { padding, maxZoom: 14, duration: 1400 });
   }
 }
 
 function selectCandidate(candidate) {
   if (!candidate) return;
   activeCandidate = candidate;
+  $("#map-external").hidden = false;
+  const reference = $("#reference-image");
+  let referenceUrl = null;
+  try { const u = new URL(candidate.reference_image); if (u.protocol === "https:") referenceUrl = u.href; } catch {}
+  reference.hidden = !referenceUrl;
+  reference.removeAttribute("src");
+  if (referenceUrl) reference.src = referenceUrl;
+  reference.onerror = () => { reference.hidden = true; $("#reference-state").textContent = "Reference image unavailable"; };
+  $("#reference-state").textContent = candidate.visual_verification === "geometric-support" ? "Geometric support found · review this reference" : "Not independently verified";
+  $("#reference-credit").textContent = candidate.reference_attribution || "Nearby street imagery alone does not prove a match.";
+
   $("#result-name").textContent = candidate.name || "Location candidate";
   $("#result-address").textContent = candidate.address || "Mapped location";
   $("#result-tier").textContent = String(candidate.tier || "Place").replace(/^./, (c) => c.toUpperCase());
-  $("#result-score").textContent = Number.isFinite(Number(candidate.score)) ? `${Math.min(100, Math.round(Number(candidate.score)))}%` : "Ranked";
-  $("#result-radius").textContent = candidate.radius_m ? `${Math.round(candidate.radius_m)} m` : "Candidate pin";
+  $("#result-score").textContent = Number.isFinite(Number(candidate.score)) ? `${Math.min(100, Math.round(Number(candidate.score)))} / 100` : "Unscored";
+  $("#result-radius").textContent = radiusLabel(candidate.radius_m);
+  const evidence = (candidate.why || []).filter(Boolean).slice(0, 3);
+  $("#result-evidence").innerHTML = evidence.map((item) => `<li>${esc(item)}</li>`).join("") || "<li>No independent visual verification yet.</li>";
+  $("#open-street").disabled = ["city", "region"].includes(candidate.tier);
+  $("#map-external").href = candidate.maps || `https://www.openstreetmap.org/?mlat=${encodeURIComponent(candidate.lat)}&mlon=${encodeURIComponent(candidate.lon)}#map=15/${encodeURIComponent(candidate.lat)}/${encodeURIComponent(candidate.lon)}`;
+  $("#street-external").href = candidate.street_view || `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${encodeURIComponent(candidate.lat)},${encodeURIComponent(candidate.lon)}`;
+  $("#street-external").hidden = ["city", "region"].includes(candidate.tier);
   $$(".candidate").forEach((node) => node.classList.toggle("on", node.dataset.id === String(candidate.id)));
   drawCandidates(lastResult?.candidates || [candidate], candidate.id, true);
-  if (!$("#street-view").hidden) showStreetContext();
+  if (!$("#street-view").hidden) setView("street");
 }
 
 function setView(view) {
+  if (view === "compare" && !activeCandidate) view = "map";
+  if (view === "street" && (!activeCandidate || ["city", "region"].includes(activeCandidate.tier))) view = "map";
   $$(".view-toggle button").forEach((button) => button.classList.toggle("on", button.dataset.view === view));
   $("#compare-drawer").hidden = view !== "compare";
   $("#street-view").hidden = view !== "street";
@@ -173,13 +210,11 @@ function setStreetInteraction(enabled) {
 }
 
 function showStreetContext() {
-  if (!activeCandidate) return;
+  if (!activeCandidate || ["city", "region"].includes(activeCandidate.tier)) return;
   drawCandidates(lastResult?.candidates || [activeCandidate], activeCandidate.id, true);
   map.flyTo({ center: [activeCandidate.lon, activeCandidate.lat], zoom: 18.2, pitch: 67, bearing: -18, duration: 1450 });
-  // Prefer a free, public street-imagery viewer when the shortlist has
-  // coverage. Google remains only as the existing no-key fallback.
-  const placeQuery = activeCandidate.street_view_query || [activeCandidate.name, activeCandidate.address].filter(Boolean).join(", ");
-  const streetUrl = activeCandidate.kartaview || activeCandidate.street_view || `https://maps.google.com/maps?q=${encodeURIComponent(placeQuery)}&z=18&layer=c&output=embed`;
+  const lat = Number(activeCandidate.lat), lon = Number(activeCandidate.lon);
+  const streetUrl = `https://maps.google.com/maps?q=${encodeURIComponent(`${lat},${lon}`)}&layer=c&cbll=${encodeURIComponent(`${lat},${lon}`)}&output=svembed`;
   if ($("#street-frame").src !== streetUrl) $("#street-frame").src = streetUrl;
   $("#street-name").textContent = activeCandidate.name || "Selected place";
   $("#street-view").hidden = false;
@@ -230,14 +265,19 @@ function setMapStyle(styleName) {
 function updateStep(id, status) {
   if (status !== "run" && status !== "done") return;
   const [label, base] = STEP[id] || ["Searching visual terrain", 50];
-  const percent = Math.min(98, base + (status === "done" ? 4 : 0));
+  const percent = progressValue = Math.max(progressValue, Math.min(98, base + (status === "done" ? 4 : 0)));
   $("#search-detail").textContent = label;
   $("#search-progress").style.width = `${percent}%`;
   $("#search-percent").textContent = `${String(percent).padStart(2, "0")}%`;
 }
 
 async function runSearch() {
+  if (activeSearch) return;
   if (!selectedFile) return chooseImage();
+  const controller = new AbortController();
+  activeSearch = controller;
+  progressValue = 8;
+  const timeout = setTimeout(() => controller.abort(), 60000);
   $("#upload-panel").hidden = true;
   $("#source-dock").hidden = false;
   $("#result-ui").hidden = true;
@@ -253,48 +293,60 @@ async function runSearch() {
   const form = new FormData();
   form.append("file", selectedFile, selectedFile.name);
   try {
-    const response = await fetch("/api/analyze", { method: "POST", body: form });
+    const response = await fetch("/api/analyze", { method: "POST", body: form, signal: controller.signal });
     if (!response.ok) throw new Error(await response.text());
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
-    let buffer = "";
+    let buffer = "", receivedResult = false;
+    function receive(line) {
+      if (activeSearch !== controller || !line.trim()) return;
+      const message = JSON.parse(line);
+      if (message.type === "step") updateStep(message.id, message.status);
+      if (message.type === "result") { receivedResult = true; showResult(message.data); }
+      if (message.type === "error") throw new Error(message.message || "Search failed");
+    }
     while (true) {
       const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
+      buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
       const lines = buffer.split("\n");
       buffer = lines.pop() || "";
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        let message;
-        try { message = JSON.parse(line); } catch { continue; }
-        if (message.type === "step") updateStep(message.id, message.status);
-        if (message.type === "result") showResult(message.data);
-        if (message.type === "error") throw new Error(message.message || "Search failed");
-      }
+      lines.forEach(receive);
+      if (done) { receive(buffer); break; }
     }
+    if (!receivedResult) throw new Error("Search ended without a result. Please retry.");
   } catch (error) {
+    if (activeSearch !== controller) return;
     document.body.classList.remove("busy");
     $("#search-title").textContent = "Search interrupted";
-    $("#search-detail").textContent = error.message || "Please try again";
+    $("#search-detail").textContent = error.name === "AbortError" ? "Search stopped. You can retry with another photo." : error.message || "Please try again";
     $("#search-progress").style.width = "0";
     $("#source-dock").hidden = false;
+  } finally {
+    clearTimeout(timeout);
+    if (activeSearch === controller) activeSearch = null;
   }
 }
 
+$("#cancel-search").addEventListener("click", () => activeSearch?.abort());
+
 function showResult(data) {
   lastResult = data;
+  const regions = data.reference_coverage?.installed_regions || [];
+  $("#coverage-note").textContent = `Installed reference regions: ${regions.length ? regions.join(", ") : "none"}. Coverage is incomplete; scores are ranking signals, not probabilities.`;
   document.body.classList.remove("busy");
   document.body.classList.add("result-mode");
   $("#search-card").hidden = true;
   $("#source-dock").hidden = true;
   $("#result-ui").hidden = false;
   const candidates = data.candidates || [];
-  $("#candidate-strip").innerHTML = candidates.slice(0, 4).map((candidate, index) => `
-    <div class="candidate ${data.primary?.id === candidate.id ? "on" : ""}" data-id="${esc(candidate.id)}">
+  $("#result-summary").textContent = data.summary || "Results are candidates to inspect, not a certain address.";
+  $("#candidate-strip").innerHTML = candidates.slice(0, 10).map((candidate, index) => `
+    <button type="button" class="candidate ${data.primary?.id === candidate.id ? "on" : ""}" data-id="${esc(candidate.id)}" aria-label="Inspect candidate ${index + 1}: ${esc(candidate.name || "Location candidate")}">
       <b>${index + 1}. ${esc(candidate.name || "Location candidate")}</b>
       <small>${esc(candidate.address || "Mapped candidate")}</small>
-    </div>`).join("");
+      <em>${esc((candidate.why || [])[0] || "Inspect this candidate on the map")}</em>
+      <span class="candidate-meta"><span>${esc(radiusLabel(candidate.radius_m))} radius</span><span>${esc(Math.round(Number(candidate.score) || 0))} ranking signal</span></span>
+    </button>`).join("");
   $$(".candidate").forEach((node) => node.addEventListener("click", () => {
     const found = candidates.find((candidate) => String(candidate.id) === node.dataset.id);
     if (found) selectCandidate(found);
@@ -304,10 +356,17 @@ function showResult(data) {
   else {
     activeCandidate = null;
     $("#result-name").textContent = "Location not resolved";
-    $("#result-address").textContent = "Try a wider, clearer view of the scene.";
+    $("#result-address").textContent = "Try a clear place-only crop with distinctive fixed details.";
+    $("#result-evidence").innerHTML = "<li>No mapped candidate passed the current search.</li>";
+    $("#result-score").textContent = "—";
+    $("#result-radius").textContent = "—";
+    $("#result-tier").textContent = "Unresolved";
+    $("#open-street").disabled = true;
+    $("#map-external").hidden = true;
+    $("#street-external").hidden = true;
     clearLayers();
   }
-  setView("street");
+  setView("map");
 }
 
 $("#file").addEventListener("change", () => loadFile($("#file").files?.[0]));
@@ -320,7 +379,7 @@ $("#upload-search").addEventListener("click", runSearch);
 $("#dock-search").addEventListener("click", chooseImage);
 $("#back-results").addEventListener("click", resetSearch);
 $("#panel-close").addEventListener("click", () => $(".result-panel").classList.toggle("collapsed"));
-$("#compare-close").addEventListener("click", () => setView("street"));
+$("#compare-close").addEventListener("click", () => setView("map"));
 $("#map-tool").addEventListener("click", () => activeCandidate ? setView("map") : map.flyTo({center:[-122.34,37.79],zoom:10.8,pitch:56,bearing:-13,duration:1200}));
 $("#results-tool").addEventListener("click", () => {
   if (!lastResult) return toast("Run an image search to view candidates");

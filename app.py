@@ -128,7 +128,7 @@ async def analyze(file: UploadFile = File(...)):
     suffix = Path(name).suffix.lower() or ".jpg"
     if suffix not in ALLOWED:
         raise HTTPException(400, f"Unsupported type {suffix}")
-    data = await file.read()
+    data = await file.read(15 * 1024 * 1024 + 1)
     if not data:
         raise HTTPException(400, "Empty file")
     if len(data) > 15 * 1024 * 1024:

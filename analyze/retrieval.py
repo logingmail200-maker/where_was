@@ -298,7 +298,9 @@ def search(
     requested = safe_city(city)
     if requested in available_regions() and requested not in routed:
         routed.insert(0, requested)
-    slugs = ([GLOBAL_SLUG] if _load_shard(GLOBAL_SLUG) else []) + routed
+    # Without a merged global index, search installed shards rather than
+    # requiring a city guess before visual retrieval can start.
+    slugs = [GLOBAL_SLUG, *routed] if _load_shard(GLOBAL_SLUG) else (routed or available_regions())
     if not slugs:
         return []
     query_light = embed_images_light([image_path])

@@ -9,7 +9,7 @@ from pathlib import Path
 from .exif_tools import classify_image, jpeg_bytes_for_search, jpeg_vision_bundle, read_exif
 from .ocr_tools import apply_gemini_signs, run_ocr
 from .places import bbox_around, nearby_elevated, overpass_named, pair_names, reverse_geocode, search_places
-from .rank import rank
+from .rank import rank, select_primary
 from .think import compose, hunt
 from .reverse import reverse_search
 from .vision import ask_gemini, ask_person_guard
@@ -25,6 +25,7 @@ def _event(obj: dict) -> str:
 
 async def analyze_stream(path: Path, filename: str, analysis_id: str | None = None):
     t0 = time.time()
+    retrieval_task = None
     try:
         yield _event({"type": "step", "id": "read", "status": "run", "label": "Reading the file"})
         # Independent file reads run together.  Previously these were serial,
@@ -87,6 +88,12 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
         # Gemini receives the full scene plus sharp crops and performs its own
         # sign reading, so it need not wait for local OCR.  All four evidence
         # branches now start together and reconcile afterwards.
+        # Global reference retrieval does not depend on OCR or scene reasoning.
+        # Start it after the privacy guard, alongside the other evidence branches.
+        if not privacy_limited:
+            yield _event({"type": "step", "id": "retrieve", "status": "run", "label": "Searching installed reference imagery"})
+            retrieval_task = asyncio.create_task(asyncio.wait_for(
+                asyncio.to_thread(search_retrieval, path, top_k=10), timeout=10.0))
         ocr_task = asyncio.create_task(do_ocr())
         rev_task = asyncio.create_task(do_rev())
         geo_task = asyncio.create_task(do_revgeo())
@@ -168,15 +175,6 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
                 "detail": thought,
             }
         )
-        retrieval_task = None
-        if not privacy_limited:
-            yield _event({"type": "step", "id": "retrieve", "status": "run", "label": "Searching licensed street imagery"})
-            retrieval_task = asyncio.create_task(
-                asyncio.wait_for(
-                    asyncio.to_thread(search_retrieval, path, mind.get("city"), mind=mind, top_k=10),
-                    timeout=10.0,
-                )
-            )
 
         if privacy_limited:
             # We only resolve an approximate city/region in a personal photo;
@@ -304,10 +302,9 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
             except (asyncio.TimeoutError, Exception):
                 pass
             ranked["candidates"].sort(key=lambda candidate: (-float(candidate.get("score") or 0), candidate.get("radius_m") or 999999))
-            ranked["primary"] = next(
-                (candidate for candidate in ranked["candidates"] if candidate.get("score", 0) >= 65 and candidate.get("tier") not in {"city", "region"}),
-                None,
-            )
+            ranked["primary"] = select_primary(ranked["candidates"])
+            if ranked["candidates"] and ranked["primary"] is None:
+                ranked["summary"] = "Several plausible places remain. Compare their visual evidence and search radius before choosing one."
         else:
             for candidate in ranked["candidates"]:
                 candidate["tier"] = "city"
@@ -453,3 +450,7 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
     except Exception as e:
         traceback.print_exc()
         yield _event({"type": "error", "message": str(e)[:300]})
+    finally:
+        if retrieval_task is not None and not retrieval_task.done():
+            retrieval_task.cancel()
+            await asyncio.gather(retrieval_task, return_exceptions=True)
