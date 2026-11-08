@@ -28,11 +28,24 @@ body {
   font-size:clamp(44px,6.2vw,88px);
   line-height:1.06;
   letter-spacing:-.065em;
-  margin:24px 0
+  margin:24px 0;
+  animation:hero-arrive .9s cubic-bezier(.2,.75,.2,1) both
 }
 .proof-copy h1 em {
   font-style:normal;
-  color:var(--proof-muted)
+  color:var(--proof-muted);
+  animation:hero-tone 6s ease-in-out 1s infinite alternate
+}
+.proof-copy .proof-description,.proof-copy .proof-actions {
+  animation:hero-arrive .9s cubic-bezier(.2,.75,.2,1) .18s both
+}
+@keyframes hero-arrive {
+  from { opacity:0; transform:translateY(12px); filter:blur(3px) }
+  to { opacity:1; transform:translateY(0); filter:blur(0) }
+}
+@keyframes hero-tone {
+  from { color:var(--proof-muted) }
+  to { color:var(--proof-ink) }
 }
 .proof-description {
   max-width:630px;
@@ -293,6 +306,9 @@ html[data-theme=light] .site-header a {
   }
 }
 @media(prefers-reduced-motion:reduce) {
+  .proof-copy h1,.proof-copy h1 em,.proof-copy .proof-description,.proof-copy .proof-actions {
+    animation:none
+  }
   .proof-scan:after {
     animation:none
   }

@@ -71,21 +71,21 @@ updatePlayback();
 const features = {
   estimate: {
     label: "Visual shortlist",
-    title: "Read the place, from street to landscape.",
-    body: "Visible text, buildings, road form and environment help form a shortlist.",
-    image: "field-bengaluru.jpg",
+    title: "Explore likely places from one photo.",
+    body: "Compare a ranked shortlist with a score, radius and map context.",
+    image: "field-london.jpg",
   },
   precision: {
     label: "Candidate review",
-    title: "Compare the evidence behind each place.",
-    body: "Review the reference imagery, source and search radius before choosing a candidate.",
-    image: "field-mumbai.jpg",
+    title: "Inspect each candidate in context.",
+    body: "Review the place and its search radius before making your choice.",
+    image: "field-switzerland.jpg",
   },
   confirm: {
     label: "Review workflow",
     title: "Keep uncertainty in the picture.",
-    body: "A promising place is a lead to inspect. Reference coverage and independent verification matter.",
-    image: "field-switzerland.jpg",
+    body: "A promising place is a lead to inspect, with uncertainty clearly shown.",
+    image: "field-mumbai.jpg",
   },
 };
 const featureTabs = document.querySelectorAll("[data-feature]");

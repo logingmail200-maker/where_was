@@ -16,10 +16,9 @@ const MAP_STYLES = {
 };
 
 const STEP = {
-  read: ["Preparing the image", 8], exif: ["Checking spatial signals", 18],
-  ocr: ["Reading visible landmarks", 34], rev: ["Comparing visual references", 49],
-  vision: ["Understanding the scene", 64], places: ["Searching candidate areas", 81],
-  rank: ["Resolving the strongest match", 94],
+  read: ["Preparing the image", 8],
+  search: ["Searching places", 64],
+  rank: ["Ranking matches", 94],
 };
 
 function initMap() {
@@ -176,8 +175,6 @@ function selectCandidate(candidate) {
   $("#result-tier").textContent = String(candidate.tier || "Place").replace(/^./, (c) => c.toUpperCase());
   $("#result-score").textContent = Number.isFinite(Number(candidate.score)) ? `${Math.min(100, Math.round(Number(candidate.score)))} / 100` : "Unscored";
   $("#result-radius").textContent = radiusLabel(candidate.radius_m);
-  const evidence = (candidate.why || []).filter(Boolean).slice(0, 3);
-  $("#result-evidence").innerHTML = evidence.map((item) => `<li>${esc(item)}</li>`).join("") || "<li>No independent visual verification yet.</li>";
   $("#open-street").disabled = ["city", "region"].includes(candidate.tier);
   $("#map-external").href = candidate.maps || `https://www.openstreetmap.org/?mlat=${encodeURIComponent(candidate.lat)}&mlon=${encodeURIComponent(candidate.lon)}#map=15/${encodeURIComponent(candidate.lat)}/${encodeURIComponent(candidate.lon)}`;
   $("#street-external").href = candidate.street_view || `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${encodeURIComponent(candidate.lat)},${encodeURIComponent(candidate.lon)}`;
@@ -331,8 +328,6 @@ $("#cancel-search").addEventListener("click", () => activeSearch?.abort());
 
 function showResult(data) {
   lastResult = data;
-  const regions = data.reference_coverage?.installed_regions || [];
-  $("#coverage-note").textContent = `Installed reference regions: ${regions.length ? regions.join(", ") : "none"}. Coverage is incomplete; scores are ranking signals, not probabilities.`;
   document.body.classList.remove("busy");
   document.body.classList.add("result-mode");
   $("#search-card").hidden = true;
@@ -344,7 +339,7 @@ function showResult(data) {
     <button type="button" class="candidate ${data.primary?.id === candidate.id ? "on" : ""}" data-id="${esc(candidate.id)}" aria-label="Inspect candidate ${index + 1}: ${esc(candidate.name || "Location candidate")}">
       <b>${index + 1}. ${esc(candidate.name || "Location candidate")}</b>
       <small>${esc(candidate.address || "Mapped candidate")}</small>
-      <em>${esc((candidate.why || [])[0] || "Inspect this candidate on the map")}</em>
+      <em>Inspect this candidate on the map</em>
       <span class="candidate-meta"><span>${esc(radiusLabel(candidate.radius_m))} radius</span><span>${esc(Math.round(Number(candidate.score) || 0))} ranking signal</span></span>
     </button>`).join("");
   $$(".candidate").forEach((node) => node.addEventListener("click", () => {
@@ -357,7 +352,6 @@ function showResult(data) {
     activeCandidate = null;
     $("#result-name").textContent = "Location not resolved";
     $("#result-address").textContent = "Try a clear place-only crop with distinctive fixed details.";
-    $("#result-evidence").innerHTML = "<li>No mapped candidate passed the current search.</li>";
     $("#result-score").textContent = "—";
     $("#result-radius").textContent = "—";
     $("#result-tier").textContent = "Unresolved";

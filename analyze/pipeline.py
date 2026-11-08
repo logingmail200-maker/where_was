@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import time
 import traceback
@@ -20,7 +21,55 @@ from .retrieval import available_regions, search as search_retrieval
 
 
 def _event(obj: dict) -> str:
+    if obj.get("type") == "step":
+        # The stream is public. Keep progress useful without exposing the
+        # search branches, detected text, provider names, or index coverage.
+        phase = obj.get("id")
+        phase = "read" if phase in {"read", "privacy", "exif"} else "rank" if phase == "rank" else "search"
+        obj = {"type": "step", "id": phase, "status": obj.get("status"),
+               "label": {"read": "Preparing image", "search": "Searching places", "rank": "Ranking matches"}[phase]}
     return json.dumps(obj, ensure_ascii=False) + "\n"
+
+
+_PUBLIC_CANDIDATE_FIELDS = (
+    "id", "name", "address", "lat", "lon", "radius_m", "tier", "score",
+    "maps", "street_view", "reference_image", "reference_attribution",
+    "visual_verification",
+)
+
+
+def _public_candidate(candidate: dict) -> dict:
+    return {key: candidate[key] for key in _PUBLIC_CANDIDATE_FIELDS if key in candidate}
+
+
+def _public_result(result: dict) -> dict:
+    """Send reviewable locations, not the internal search trace or coverage."""
+    candidates = []
+    public_ids = {}
+    for candidate in result.get("candidates", [])[:10]:
+        public = _public_candidate(candidate)
+        public_id = hashlib.sha256(
+            f"{result.get('analysis_id')}:{candidate.get('id')}".encode()
+        ).hexdigest()[:12]
+        public["id"] = public_id
+        public_ids[candidate.get("id")] = public_id
+        candidates.append(public)
+    primary = result.get("primary")
+    public_primary = _public_candidate(primary) if primary else None
+    if public_primary:
+        public_primary["id"] = public_ids.get(primary.get("id"))
+    return {
+        "analysis_id": result.get("analysis_id"),
+        "candidates": candidates,
+        "primary": public_primary,
+        "summary": (
+            "For privacy, this search is limited to a broad city area."
+            if result.get("privacy_limited") else
+            "Ranked location candidates. Scores are ranking signals, not probabilities; inspect the radius and map before deciding."
+        ),
+        "privacy_limited": bool(result.get("privacy_limited")),
+        "elapsed_ms": result.get("elapsed_ms"),
+    }
 
 
 async def analyze_stream(path: Path, filename: str, analysis_id: str | None = None):
@@ -390,6 +439,7 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
         ]
         result = {
             "analysis_id": analysis_id,
+            "privacy_limited": privacy_limited,
             "filename": filename,
             "kind": kind["kind"],
             "kind_reasons": kind.get("reasons") or [],
@@ -446,10 +496,10 @@ async def analyze_stream(path: Path, filename: str, analysis_id: str | None = No
             ],
         }
         yield _event({"type": "step", "id": "rank", "status": "done", "label": "Ranked", "detail": ranked["summary"][:120]})
-        yield _event({"type": "result", "data": result})
+        yield _event({"type": "result", "data": _public_result(result)})
     except Exception as e:
         traceback.print_exc()
-        yield _event({"type": "error", "message": str(e)[:300]})
+        yield _event({"type": "error", "message": "Search could not complete. Please try again."})
     finally:
         if retrieval_task is not None and not retrieval_task.done():
             retrieval_task.cancel()

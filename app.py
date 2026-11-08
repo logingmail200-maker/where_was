@@ -15,7 +15,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from analyze.pipeline import analyze_stream
-from analyze.learning import learning_status, record_feedback
+from analyze.learning import record_feedback
 
 ROOT = Path(__file__).resolve().parent
 FRONT = ROOT / "frontend"
@@ -54,13 +54,7 @@ def _warmup():
 
 @app.get("/api/health")
 def health():
-    return {
-        "ok": True,
-        "service": "wherewas",
-        "engine": "multi-clue-consensus-v2",
-        "gemini": bool(load_gemini_key()),
-        "learning": learning_status(),
-    }
+    return {"ok": True, "service": "wherewas"}
 
 
 @app.get("/api/geocode")
@@ -98,10 +92,10 @@ async def geocode(q: str):
 @app.post("/api/feedback")
 def feedback(body: Feedback):
     try:
-        status = record_feedback(body.analysis_id, body.candidates, body.selected_id)
+        record_feedback(body.analysis_id, body.candidates, body.selected_id)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
-    return {"ok": True, "learning": status}
+    return {"ok": True}
 
 
 @app.get("/")

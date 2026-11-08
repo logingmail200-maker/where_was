@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/maplibre-gl.css">
   <link rel="stylesheet" href="/marketing.css?v=28">
-  <link rel="stylesheet" href="/marketing-update.css?v=1"><link rel="stylesheet" href="/proof.css?v=1">
+  <link rel="stylesheet" href="/marketing-update.css?v=1"><link rel="stylesheet" href="/proof.css?v=2">
 </head>
 <body>
   <div class="noise" aria-hidden="true"></div>
@@ -25,15 +25,15 @@
 
   <main id="top">
     <section class="proof-hero" id="hero">
-      <div class="proof-copy"><p class="eyebrow">VISUAL PLACE SEARCH</p><h1>Find the place.<br><em>See the evidence.</em></h1><p class="proof-description">Turn the details in a photograph into places you can investigate. Compare candidates, inspect reference imagery and see what supports the match.</p><div class="proof-actions"><a class="primary-btn" href="/try">Upload a photo <span>↗</span></a><a class="proof-secondary" href="#proof-demo">Explore the workflow ↓</a></div><p class="proof-caption">Streets, buildings and landscapes. A shortlist with a radius, not an unexplained pin.</p></div>
+      <div class="proof-copy"><p class="eyebrow">VISUAL PLACE SEARCH</p><h1>Find the place.<br><em>Explore the result.</em></h1><p class="proof-description">Upload a place photo and explore a ranked shortlist on the map. Compare likely locations with a score and search radius.</p><div class="proof-actions"><a class="primary-btn" href="/try">Upload a photo <span>↗</span></a><a class="proof-secondary" href="#proof-demo">See the experience ↓</a></div><p class="proof-caption">Streets, buildings and landscapes. One photo, several places to inspect.</p></div>
       <div class="proof-demo" id="proof-demo" data-phase="0">
         <header><span>WHEREWAS / HOW IT WORKS</span><button type="button" id="demo-play" aria-label="Pause demonstration">Pause Ⅱ</button></header>
-        <div class="proof-stage"><figure class="proof-source"><img src="/assets/field-bengaluru.jpg" alt="Licensed Bengaluru street example" fetchpriority="high"><figcaption>01 / PLACE PHOTO</figcaption><div class="proof-scan" aria-hidden="true"></div><span class="proof-clue">Read the fixed details</span></figure><div class="proof-evidence"><span class="eyebrow">02 / SUPPORTING CLUES</span><h2>A scene becomes<br>a search.</h2><ul><li>Visible shop names</li><li>Road layout</li><li>Building structure</li></ul><div class="proof-candidate"><small>03 / CANDIDATE REVIEW</small><b>Bengaluru, India</b><p>Compare the reference. Check the radius. Review the evidence.</p><a href="/try">Search your own image ↗</a></div></div></div>
-        <div class="proof-timeline" aria-label="Demonstration steps"><button data-phase="0" class="active">01 Photo</button><button data-phase="1">02 Clues</button><button data-phase="2">03 Review</button></div>
+        <div class="proof-stage"><figure class="proof-source"><img src="/assets/field-bengaluru.jpg" alt="Bengaluru street example" fetchpriority="high"><figcaption>01 / PLACE PHOTO</figcaption><div class="proof-scan" aria-hidden="true"></div><span class="proof-clue">Finding possible places</span></figure><div class="proof-evidence"><span class="eyebrow">02 / LOCATION SEARCH</span><h2>One photo.<br>Places to explore.</h2><ul><li>Ranked candidates</li><li>Map and street context</li><li>Estimated search radius</li></ul><div class="proof-candidate"><small>03 / CANDIDATE REVIEW</small><b>Bengaluru, India</b><p>Explore the map. Check the radius. Make your own assessment.</p><a href="/try">Search your own image ↗</a></div></div></div>
+        <div class="proof-timeline" aria-label="Demonstration steps"><button data-phase="0" class="active">01 Photo</button><button data-phase="1">02 Search</button><button data-phase="2">03 Review</button></div>
         <footer>Illustrative workflow · not a live search result. <a href="https://www.mapillary.com/app/?pKey=2850385311894788">Photo: ranjithjoy / Mapillary</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a></footer>
       </div>
     </section>
-    <div class="proof-strip section"><span>Read the scene</span><i>→</i><span>Search candidate areas</span><i>→</i><span>Compare reference imagery</span><i>→</i><span>Review the evidence</span></div>
+    <div class="proof-strip section"><span>Upload a place photo</span><i>→</i><span>Explore candidates</span><i>→</i><span>Inspect the map</span><i>→</i><span>Choose with context</span></div>
 
     <section class="enterprise section" id="platform">
       <div class="section-intro reveal">
@@ -47,49 +47,49 @@
         <button role="tab" aria-selected="false" data-feature="confirm"><i></i> Verified workflow</button>
       </div>
       <article class="feature-card reveal" id="feature-card">
-        <div class="feature-copy"><p class="feature-label" id="feature-label">Visual shortlist</p><h3 id="feature-title">Turn one uncertain scene into places worth checking.</h3><p id="feature-body">Road geometry, storefronts, architecture, language, transit, and landmarks become a ranked shortlist—not an unexplained pin.</p><div class="feature-metrics"><span>Visible clues</span><span>Ranked places</span><span>Map context</span></div></div>
+        <div class="feature-copy"><p class="feature-label" id="feature-label">Visual shortlist</p><h3 id="feature-title">Turn one uncertain scene into places worth checking.</h3><p id="feature-body">Explore likely places with a score and radius, then inspect them on the map.</p><div class="feature-metrics"><span>Place search</span><span>Ranked places</span><span>Map context</span></div></div>
         <div class="feature-media" id="feature-media"><div class="frame-corners"><i></i><i></i><i></i><i></i></div><div class="location-chip"><span></span><b>Scene located</b><small>Candidate ready</small></div></div>
       </article>
     </section>
 
     <section class="editorial section reveal" id="method">
       <div class="editorial-bg"></div>
-      <div class="editorial-copy"><p class="eyebrow">How it works</p><h2>Every visible detail<br>earns its place.</h2><p>WhereWas treats a photograph as a network of place signals—not a single guess. Users can compare candidates, view the map, and make the final confirmation.</p></div>
-      <div class="signal-stack" aria-hidden="true"><span>ROAD FORM <b>84</b></span><span>PLACE NAME <b>96</b></span><span>TRANSIT CONTEXT <b>79</b></span><span>REGIONAL FIT <b>88</b></span></div>
+      <div class="editorial-copy"><p class="eyebrow">How it works</p><h2>A location search<br>you can explore.</h2><p>WhereWas presents possible places as a shortlist. Compare candidates, view the map, and make the final call.</p></div>
+      <div class="signal-stack" aria-hidden="true"><span>PHOTO <b>01</b></span><span>SEARCH <b>02</b></span><span>SHORTLIST <b>03</b></span><span>MAP REVIEW <b>04</b></span></div>
     </section>
 
     <section class="intelligence section">
-      <div class="intel-copy reveal"><p class="eyebrow">One workspace</p><h2>Turn pixels into<br>defensible decisions.</h2><p>Upload the frame, inspect the strongest clues, compare candidates on the map, and preserve the decision with its context.</p></div>
+      <div class="intel-copy reveal"><p class="eyebrow">One workspace</p><h2>From photo to<br>places worth checking.</h2><p>Upload a place photo, compare likely locations on the map, and keep the search radius in view.</p></div>
       <article class="evidence-case reveal">
-        <figure><img src="/assets/field-bengaluru.jpg" alt="Bengaluru street with autorickshaws, shop signs and a divided road" loading="lazy" width="1920" height="1080"><figcaption><a href="https://www.mapillary.com/app/?pKey=2850385311894788">© ranjithjoy / Mapillary</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA</a></figcaption></figure>
-        <div class="evidence-case-body"><small>ILLUSTRATIVE WORKFLOW / INDIA</small><h3>From street clues to map evidence.</h3><ul class="evidence-clues"><li>Shop names</li><li>Autorickshaws</li><li>Divided road</li></ul><div class="candidate-preview"><span class="candidate-number">01</span><div><b>Bengaluru, India</b><p>A candidate to compare with reference imagery.</p></div><span class="candidate-tag">Review</span></div><a class="evidence-link" href="/articles/visual-shortlist.html">Follow the evidence <span aria-hidden="true">↗</span></a></div>
+        <figure><img src="/assets/field-mumbai.jpg" alt="Mumbai street example" loading="lazy" width="2048" height="1153"><figcaption><a href="https://www.mapillary.com/app/?pKey=3164309240466048">© a17archives / Mapillary</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA</a></figcaption></figure>
+        <div class="evidence-case-body"><small>ILLUSTRATIVE WORKFLOW / INDIA</small><h3>From a photo to a map shortlist.</h3><ul class="evidence-clues"><li>Candidate places</li><li>Search radius</li><li>Map review</li></ul><div class="candidate-preview"><span class="candidate-number">01</span><div><b>Mumbai, India</b><p>A location candidate to inspect on the map.</p></div><span class="candidate-tag">Review</span></div><a class="evidence-link" href="/try">Try a place photo <span aria-hidden="true">↗</span></a></div>
       </article>
     </section>
 
     <section class="stories section" id="articles">
       <div class="stories-intro reveal"><p class="eyebrow">Field notes</p><h2>Visual location, explained.</h2><p>Short reads on evidence, verification, and responsible visual search.</p></div>
       <div class="story-grid">
-        <article class="story-card reveal"><div class="story-image story-a"><span>Bengaluru · 3 min</span><a class="image-credit" href="https://www.mapillary.com/app/?pKey=2850385311894788" aria-label="Bengaluru image by ranjithjoy on Mapillary">© ranjithjoy / Mapillary · CC BY-SA</a></div><div><small>FIELD NOTE / 01 · INDIA</small><h3>Kannada signs, autorickshaws and road form become a reviewable shortlist.</h3><a href="/articles/visual-shortlist.html">Read field note <span>→</span></a></div></article>
-        <article class="story-card reveal"><div class="story-image story-b"><span>Mumbai · 3 min</span><a class="image-credit" href="https://www.mapillary.com/app/?pKey=3164309240466048" aria-label="Mumbai image by a17archives on Mapillary">© a17archives / Mapillary · CC BY-SA</a></div><div><small>FIELD NOTE / 02 · INDIA</small><h3>A street sign, pavement and traffic pattern provide separate clues.</h3><a href="/articles/reviewable-results.html">Explore the workflow <span>→</span></a></div></article>
-        <article class="story-card reveal"><div class="story-image story-c"><span>London · 3 min</span><a class="image-credit" href="https://www.mapillary.com/app/?pKey=1310232187355024" aria-label="London image by southglos on Mapillary">© southglos / Mapillary · CC BY-SA</a></div><div><small>FIELD NOTE / 03 · UK</small><h3>Architecture and transit help verify a candidate without claiming certainty.</h3><a href="/articles/responsible-security.html">Read field note <span>→</span></a></div></article>
-        <article class="story-card reveal"><div class="story-image story-d"><span>Switzerland · 3 min</span><a class="image-credit" href="https://www.mapillary.com/app/?pKey=2632351727162768" aria-label="Swiss road image by bct on Mapillary">© bct / Mapillary · CC BY-SA</a></div><div><small>FIELD NOTE / 04 · GEOGRAPHY</small><h3>Terrain, vegetation and road design matter when there is no storefront.</h3><a href="/articles/terrain-and-road.html">Read field note <span>→</span></a></div></article>
+        <article class="story-card reveal"><div class="story-image story-a"><span>Bengaluru · 3 min</span><a class="image-credit" href="https://www.mapillary.com/app/?pKey=2850385311894788" aria-label="Bengaluru image by ranjithjoy on Mapillary">© ranjithjoy / Mapillary · CC BY-SA</a></div><div><small>FIELD NOTE / 01 · INDIA</small><h3>How to review a Bengaluru location shortlist.</h3><a href="/articles/visual-shortlist.html">Read field note <span>→</span></a></div></article>
+        <article class="story-card reveal"><div class="story-image story-b"><span>Mumbai · 3 min</span><a class="image-credit" href="https://www.mapillary.com/app/?pKey=3164309240466048" aria-label="Mumbai image by a17archives on Mapillary">© a17archives / Mapillary · CC BY-SA</a></div><div><small>FIELD NOTE / 02 · INDIA</small><h3>Explore a city search result with its map and radius.</h3><a href="/articles/reviewable-results.html">Explore the workflow <span>→</span></a></div></article>
+        <article class="story-card reveal"><div class="story-image story-c"><span>London · 3 min</span><a class="image-credit" href="https://www.mapillary.com/app/?pKey=1310232187355024" aria-label="London image by southglos on Mapillary">© southglos / Mapillary · CC BY-SA</a></div><div><small>FIELD NOTE / 03 · UK</small><h3>Compare similar looking places without claiming certainty.</h3><a href="/articles/responsible-security.html">Read field note <span>→</span></a></div></article>
+        <article class="story-card reveal"><div class="story-image story-d"><span>Switzerland · 3 min</span><a class="image-credit" href="https://www.mapillary.com/app/?pKey=2632351727162768" aria-label="Swiss road image by bct on Mapillary">© bct / Mapillary · CC BY-SA</a></div><div><small>FIELD NOTE / 04 · GEOGRAPHY</small><h3>Searching a place photo beyond the city.</h3><a href="/articles/terrain-and-road.html">Read field note <span>→</span></a></div></article>
       </div>
     </section>
 
     <section class="why-wherewas section" id="why-wherewas">
-      <div class="why-intro reveal"><p class="eyebrow">The WhereWas advantage</p><h2>Built for one question.<br>Where was this taken?</h2><p>A location answer should come with something you can check. Bring the source photo, ranked places, supporting clues and available reference imagery into one workspace.</p></div>
+      <div class="why-intro reveal"><p class="eyebrow">The WhereWas advantage</p><h2>Built for one question.<br>Where was this taken?</h2><p>Move from a place photo to ranked locations, a map and a search radius in one workspace.</p></div>
       <div class="comparison-grid reveal">
         <article><small>01 / LOCATION FIRST</small><h3>Places you can compare.</h3><p>Move from an image to a ranked location shortlist. Candidate coordinates and an estimated radius give you a concrete area to investigate on the map.</p></article>
-        <article><small>02 / VISIBLE REASONING</small><h3>See what supports the match.</h3><p>Review the text, road layout and scene clues behind a candidate. Compare the evidence and confidence before deciding which location deserves a closer look.</p></article>
+        <article><small>02 / REVIEWABLE RESULTS</small><h3>See the possible places.</h3><p>Compare candidates and their search radii before deciding which location deserves a closer look.</p></article>
         <article class="wherewas-comparison"><small>03 / ONE WORKSPACE</small><h3>Take the answer to the street.</h3><p>Keep the photo, candidates, map and available street imagery in one review flow. Inspect the surroundings and test whether the proposed place fits your image.</p><a href="#platform">See the WhereWas workflow <span aria-hidden="true">↓</span></a></article>
       </div>
       <ol class="evidence-flow reveal" aria-label="From an uploaded image to a location candidate">
-        <li><span>01 / PHOTO</span><div class="flow-photo"><img src="/assets/field-mumbai.jpg" alt="Mumbai street used as an illustrative place photograph" loading="lazy" width="2048" height="1153"></div><h3>Start with what you see.</h3><p>A public street, a building or the surrounding landscape.</p></li>
-        <li><span>02 / CLUES</span><div class="flow-clues" aria-hidden="true"><b>Visible text</b><b>Road layout</b><b>Scene context</b></div><h3>Inspect the reasoning.</h3><p>See which observed details support each candidate.</p></li>
-        <li><span>03 / REFERENCE</span><div class="flow-reference" aria-hidden="true"><i></i><i></i><b>Compare</b></div><h3>Check the street context.</h3><p>Compare licensed reference images where coverage exists. Nearby imagery alone is not a verified match.</p></li>
+        <li><span>01 / PHOTO</span><div class="flow-photo"><img src="/assets/field-switzerland.jpg" alt="Swiss roadside used as an illustrative place photograph" loading="lazy" width="2048" height="1153"></div><h3>Start with a place photo.</h3><p>Try a street, building or surrounding landscape.</p></li>
+        <li><span>02 / SEARCH</span><div class="flow-clues" aria-hidden="true"><b>Upload</b><b>Search</b><b>Review</b></div><h3>Explore the shortlist.</h3><p>Open possible locations without relying on a single pin.</p></li>
+        <li><span>03 / MAP</span><div class="flow-reference" aria-hidden="true"><i></i><i></i><b>Compare</b></div><h3>Check the surroundings.</h3><p>Inspect the area around a candidate and decide whether it fits.</p></li>
         <li><span>04 / RESULT</span><div class="flow-result" aria-hidden="true"><b>Ranked candidates</b><span>Coordinates · score · radius</span><i></i></div><h3>Keep uncertainty visible.</h3><p>Use the shortlist and estimated radius to decide what needs further checking.</p></li>
       </ol>
-      <p class="why-note reveal">Illustrative workflow. Street imagery and matching coverage vary by location. Passing pedestrians can appear in place photos; when a person is prominent, results are limited to a broad city area. Photo: <a href="https://www.mapillary.com/app/?pKey=3164309240466048">a17archives / Mapillary</a>, <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA</a>.</p>
+      <p class="why-note reveal">Illustrative workflow. Results are estimates with an explicit search radius. For photos where a person is prominent, WhereWas limits the result to a broad city area. Photo: <a href="https://www.mapillary.com/app/?pKey=2632351727162768">bct / Mapillary</a>, <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA</a>.</p>
     </section>
 
     <section class="final-cta section reveal"><div><p class="eyebrow">Ready when you are</p><h2>One image. One search.<br>See where it leads.</h2></div><a class="primary-btn" href="/try">Try WhereWas once <span>↗</span></a></section>
@@ -100,6 +100,6 @@
     <div class="footer-bottom"><span>Credits — Smarty · © 2026 WhereWas</span><div><a href="#platform">Platform</a><a href="#method">Method</a><a href="/pricing">Pricing</a></div></div>
   </footer>
 
-  <script src="/proof.js?v=1"></script>
+  <script src="/proof.js?v=2"></script>
 </body>
 </html>
